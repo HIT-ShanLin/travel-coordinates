@@ -1,0 +1,7 @@
+node_modules/
+dist/
+api/bin/
+api/data/
+.cache/
+.vscode/
+.DS_Store
