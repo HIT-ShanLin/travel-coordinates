@@ -20,6 +20,7 @@ type Props = {
   onCreatePost: (input: { title: string; content: string; file?: File | null }) => Promise<void>;
   onDeletePost: (postId: string) => Promise<void>;
   onDeletePlace: () => Promise<void>;
+  onClose: () => void;
 };
 
 function toDraft(place: Place): PlaceDraft {
@@ -43,6 +44,7 @@ export function PlaceDrawer({
   onCreatePost,
   onDeletePost,
   onDeletePlace,
+  onClose,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PlaceDraft | null>(place ? toDraft(place) : null);
@@ -57,12 +59,13 @@ export function PlaceDrawer({
 
   if (!place || !draft) {
     return (
-      <aside className="card drawer">
-        <div className="section-title">
-          <h2>地点详情</h2>
-          <p>点击地球上的标记查看内容。</p>
+      <div className="panel-content">
+        <div className="panel-header">
+          <h2>旅行记忆</h2>
+          <button className="ghost-btn" type="button" onClick={onClose}>关闭</button>
         </div>
-      </aside>
+        <p className="helper">点击标记查看旅行记忆。</p>
+      </div>
     );
   }
 
@@ -73,14 +76,9 @@ export function PlaceDrawer({
   }
 
   return (
-    <aside className="card drawer">
-      <div className="drawer-top">
-        <div className="section-title">
-          <h2>{place.name}</h2>
-          <p>
-            {place.country || "未知国家"} {place.city ? `· ${place.city}` : ""}
-          </p>
-        </div>
+    <div className="panel-content">
+      <div className="panel-header">
+        <h2>{place.name}</h2>
         <div className="drawer-actions">
           <button className="ghost-btn" onClick={() => setEditing((value) => !value)} type="button">
             {editing ? "取消编辑" : "编辑"}
@@ -88,8 +86,13 @@ export function PlaceDrawer({
           <button className="ghost-btn danger" onClick={() => void onDeletePlace()} type="button">
             删除
           </button>
+          <button className="ghost-btn" onClick={onClose} type="button">关闭</button>
         </div>
       </div>
+      <p className="panel-sub">
+        {place.country || "未知国家"} {place.city ? `· ${place.city}` : ""}
+        {" · "}{place.travel_date || "未填日期"}
+      </p>
 
       {editing ? (
         <form className="stack" onSubmit={handleUpdate}>
@@ -113,9 +116,9 @@ export function PlaceDrawer({
           <input value={draft.country} onChange={(e) => setDraft({ ...draft, country: e.target.value })} placeholder="国家" />
           <input value={draft.city} onChange={(e) => setDraft({ ...draft, city: e.target.value })} placeholder="城市" />
           <input
+            type="date"
             value={draft.travel_date}
             onChange={(e) => setDraft({ ...draft, travel_date: e.target.value })}
-            placeholder="旅行日期"
           />
           <input value={draft.place_type} onChange={(e) => setDraft({ ...draft, place_type: e.target.value })} placeholder="类型 / 标签" />
           <textarea value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="简短备注" rows={4} />
@@ -217,6 +220,6 @@ export function PlaceDrawer({
           ))}
         </div>
       </section>
-    </aside>
+    </div>
   );
 }

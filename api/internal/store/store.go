@@ -1,10 +1,12 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -12,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"travel-coordinates/api/internal"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -19,20 +23,28 @@ var ErrNotFound = errors.New("not found")
 type Store struct {
 	root string
 	mu   sync.Mutex
+	r2   *R2Client // nil if R2 not configured
 }
 
 func (s *Store) Root() string {
 	return s.root
 }
 
-func New(root string) (*Store, error) {
+func New(root string, cfg internal.Config) (*Store, error) {
 	if err := os.MkdirAll(filepath.Join(root, "uploads"), 0o755); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Join(root, "places"), 0o755); err != nil {
 		return nil, err
 	}
-	return &Store{root: root}, nil
+	s := &Store{root: root}
+	if r2, err := NewR2Client(cfg); err == nil {
+		s.r2 = r2
+		log.Printf("using Cloudflare R2 (bucket: %s)", cfg.R2Bucket)
+	} else {
+		log.Printf("R2 not configured, using local storage")
+	}
+	return s, nil
 }
 
 func (s *Store) ListPlaces(userID string) ([]Place, error) {
@@ -143,33 +155,51 @@ func (s *Store) AddPhoto(userID, placeID string, input PhotoInput) (Place, error
 		if place.ID != placeID {
 			continue
 		}
-		if err := os.MkdirAll(filepath.Join(s.root, "uploads", userID, placeID), 0o755); err != nil {
-			return Place{}, err
-		}
 		ext := filepath.Ext(input.Filename)
 		if ext == "" {
 			ext = ".bin"
 		}
 		photoID := newID("photo")
 		filename := photoID + ext
-		fullPath := filepath.Join(s.root, "uploads", userID, placeID, filename)
-		file, err := os.Create(fullPath)
-		if err != nil {
-			return Place{}, err
+
+		var url string
+		var fullPath string
+
+		if s.r2 != nil {
+			// Cloudflare R2
+			key := fmt.Sprintf("photos/%s/%s/%s", userID, placeID, filename)
+			_, err = s.r2.UploadReader(context.Background(), key, input.File, input.ContentType)
+			if err != nil {
+				return Place{}, err
+			}
+			fullPath = key
+			url = r2MediaURL(userID, placeID, filename)
+		} else {
+			// local fallback
+			if err := os.MkdirAll(filepath.Join(s.root, "uploads", userID, placeID), 0o755); err != nil {
+				return Place{}, err
+			}
+			fullPath = filepath.Join(s.root, "uploads", userID, placeID, filename)
+			file, err := os.Create(fullPath)
+			if err != nil {
+				return Place{}, err
+			}
+			if _, err := io.Copy(file, input.File); err != nil {
+				_ = file.Close()
+				return Place{}, err
+			}
+			if err := file.Close(); err != nil {
+				return Place{}, err
+			}
+			url = publicURL(userID, placeID, filename)
 		}
-		if _, err := io.Copy(file, input.File); err != nil {
-			_ = file.Close()
-			return Place{}, err
-		}
-		if err := file.Close(); err != nil {
-			return Place{}, err
-		}
+
 		photo := Photo{
 			ID:          photoID,
 			Filename:    input.Filename,
 			ContentType: input.ContentType,
 			Path:        fullPath,
-			URL:         publicURL(userID, placeID, filename),
+			URL:         url,
 			CreatedAt:   time.Now().UTC(),
 		}
 		place.Photos = append(place.Photos, photo)
@@ -178,6 +208,13 @@ func (s *Store) AddPhoto(userID, placeID string, input PhotoInput) (Place, error
 		return place, s.writeState(state)
 	}
 	return Place{}, ErrNotFound
+}
+
+func (s *Store) R2Download(key string) ([]byte, string, error) {
+	if s.r2 == nil {
+		return nil, "", fmt.Errorf("r2 not available")
+	}
+	return s.r2.Download(context.Background(), key)
 }
 
 func (s *Store) DeletePhoto(userID, placeID, photoID string) error {
@@ -197,6 +234,10 @@ func (s *Store) DeletePhoto(userID, placeID, photoID string) error {
 			state.Places[userID][i] = place
 			if err := s.writeState(state); err != nil {
 				return err
+			}
+			// Delete from R2 if configured, otherwise local
+			if s.r2 != nil {
+				return s.r2.Delete(context.Background(), photo.Path)
 			}
 			return os.Remove(photo.Path)
 		}
@@ -242,33 +283,49 @@ func (s *Store) AddPostAttachment(userID, placeID string, input PostInput, attac
 		if place.ID != placeID {
 			continue
 		}
-		if err := os.MkdirAll(filepath.Join(s.root, "uploads", userID, placeID), 0o755); err != nil {
-			return Place{}, err
-		}
 		ext := filepath.Ext(attachment.Filename)
 		if ext == "" {
 			ext = ".bin"
 		}
 		photoID := newID("postimg")
 		filename := photoID + ext
-		fullPath := filepath.Join(s.root, "uploads", userID, placeID, filename)
-		file, err := os.Create(fullPath)
-		if err != nil {
-			return Place{}, err
+
+		var imageURL string
+		var imagePath string
+
+		if s.r2 != nil {
+			key := fmt.Sprintf("posts/%s/%s/%s", userID, placeID, filename)
+			_, err = s.r2.UploadReader(context.Background(), key, attachment.File, attachment.ContentType)
+			if err != nil {
+				return Place{}, err
+			}
+			imagePath = key
+			imageURL = r2MediaURL(userID, placeID, filename)
+		} else {
+			if err := os.MkdirAll(filepath.Join(s.root, "uploads", userID, placeID), 0o755); err != nil {
+				return Place{}, err
+			}
+			imagePath = filepath.Join(s.root, "uploads", userID, placeID, filename)
+			file, err := os.Create(imagePath)
+			if err != nil {
+				return Place{}, err
+			}
+			if _, err := io.Copy(file, attachment.File); err != nil {
+				_ = file.Close()
+				return Place{}, err
+			}
+			if err := file.Close(); err != nil {
+				return Place{}, err
+			}
+			imageURL = publicURL(userID, placeID, filename)
 		}
-		if _, err := io.Copy(file, attachment.File); err != nil {
-			_ = file.Close()
-			return Place{}, err
-		}
-		if err := file.Close(); err != nil {
-			return Place{}, err
-		}
+
 		post := Post{
 			ID:        newID("post"),
 			Title:     strings.TrimSpace(input.Title),
 			Content:   strings.TrimSpace(input.Content),
-			ImagePath: fullPath,
-			ImageURL:  publicURL(userID, placeID, filename),
+			ImagePath: imagePath,
+			ImageURL:  imageURL,
 			CreatedAt: time.Now().UTC(),
 		}
 		place.Posts = append(place.Posts, post)
@@ -353,4 +410,8 @@ func newID(prefix string) string {
 
 func publicURL(userID, placeID, filename string) string {
 	return "/uploads/" + userID + "/" + placeID + "/" + filename
+}
+
+func r2MediaURL(userID, placeID, filename string) string {
+	return fmt.Sprintf("/api/media/%s/%s/%s", userID, placeID, filename)
 }

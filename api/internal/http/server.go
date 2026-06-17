@@ -3,13 +3,14 @@ package http
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
+	"travel-coordinates/api/internal"
 	"travel-coordinates/api/internal/store"
 )
 
@@ -21,26 +22,26 @@ type Server struct {
 }
 
 func Run() {
-	dataDir := envOr("TRAVEL_COORDINATES_DATA_DIR", filepath.Join("data"))
-	addr := envOr("PORT", "8080")
+	cfg := internal.LoadConfig()
 
-	s, err := store.New(dataDir)
+	s, err := store.New(cfg.DataDir, cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	server := New(s)
-	log.Printf("travel coordinates api listening on :%s", addr)
-	if err := http.ListenAndServe(":"+addr, server.Mux()); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	server := New(s, cfg)
+	log.Printf("travel coordinates api listening on :%s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, server.Mux()); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
 }
 
-func New(s *store.Store) *Server {
+func New(s *store.Store, cfg internal.Config) *Server {
 	mux := http.NewServeMux()
 	server := &Server{store: s, mux: mux}
 
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(filepath.Join(s.Root(), "uploads")))))
+	mux.HandleFunc("GET /api/media/{userID}/{placeID}/{filename}", server.serveMedia)
 	mux.HandleFunc("GET /healthz", server.healthz)
 	mux.HandleFunc("GET /api/places", server.listPlaces)
 	mux.HandleFunc("POST /api/places", server.createPlace)
@@ -52,11 +53,44 @@ func New(s *store.Store) *Server {
 	mux.HandleFunc("POST /api/places/{id}/posts", server.addPost)
 	mux.HandleFunc("DELETE /api/places/{id}/posts/{postId}", server.deletePost)
 
+	if cfg.WebDir != "" {
+		log.Printf("serving frontend from %s", cfg.WebDir)
+		assetDir := filepath.Join(cfg.WebDir, "assets")
+		mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetDir))))
+		mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, filepath.Join(cfg.WebDir, "index.html"))
+		})
+	}
+
 	return server
 }
 
 func (s *Server) Mux() *http.ServeMux {
 	return s.mux
+}
+
+func (s *Server) serveMedia(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("userID")
+	placeID := r.PathValue("placeID")
+	filename := r.PathValue("filename")
+	key := fmt.Sprintf("photos/%s/%s/%s", userID, placeID, filename)
+
+	data, contentType, err := s.store.R2Download(key)
+	if err != nil {
+		// try post images key format
+		key2 := fmt.Sprintf("posts/%s/%s/%s", userID, placeID, filename)
+		data, contentType, err = s.store.R2Download(key2)
+		if err != nil {
+			writeError(w, http.StatusNotFound, fmt.Errorf("media not found"))
+			return
+		}
+	}
+
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(data)
 }
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
@@ -226,10 +260,3 @@ func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
 }
 
-func envOr(key, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-	return value
-}
