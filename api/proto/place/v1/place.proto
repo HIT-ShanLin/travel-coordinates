@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package travelcoordinates.place.v1;
+
+option go_package = "travel-coordinates/go/gen/place/v1;placev1";
+
+service PlaceService {
+  rpc ListPlaces(ListPlacesRequest) returns (ListPlacesResponse);
+  rpc CreatePlace(CreatePlaceRequest) returns (Place);
+  rpc GetPlace(GetPlaceRequest) returns (Place);
+  rpc UpdatePlace(UpdatePlaceRequest) returns (Place);
+  rpc DeletePlace(DeletePlaceRequest) returns (DeletePlaceResponse);
+}
+
+message Place {
+  string id = 1;
+  string user_id = 2;
+  string name = 3;
+  double latitude = 4;
+  double longitude = 5;
+  string travel_date = 6;
+  string note = 7;
+  string place_type = 8;
+  string country = 9;
+  string city = 10;
+}
+
+message ListPlacesRequest {
+  string user_id = 1;
+}
+
+message ListPlacesResponse {
+  repeated Place places = 1;
+}
+
+message CreatePlaceRequest {
+  string user_id = 1;
+  Place place = 2;
+}
+
+message GetPlaceRequest {
+  string user_id = 1;
+  string id = 2;
+}
+
+message UpdatePlaceRequest {
+  string user_id = 1;
+  string id = 2;
+  Place place = 3;
+}
+
+message DeletePlaceRequest {
+  string user_id = 1;
+  string id = 2;
+}
+
+message DeletePlaceResponse {}

@@ -1,0 +1,22 @@
+# Travel Coordinates Backend Configuration
+# Values here can be overridden by environment variables (see bootstrap/config.go).
+# Secrets should never be committed here — use .env or environment variables.
+
+# HTTP server listen port
+port: "8080"
+
+# Data directory for state.json and local file uploads
+data_dir: "data"
+
+# Frontend static files directory (auto-detected if empty)
+web_dir: ""
+
+# --- Cloudflare R2 object storage (optional) ---
+# If all fields are set, photos and attachments are uploaded to R2.
+# If any field is empty, local disk storage is used instead.
+r2_account_id: ""
+r2_access_key: ""
+r2_secret_key: ""
+r2_bucket: ""
+r2_domain: ""   # optional custom domain for public URLs
+r2_endpoint: "" # optional custom S3 endpoint

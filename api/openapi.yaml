@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: Travel Coordinates API
+  version: 0.1.0
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+  /api/places:
+    get:
+      summary: List places
+      responses:
+        "200":
+          description: Places returned
+    post:
+      summary: Create place
+      responses:
+        "201":
+          description: Place created
+  /api/places/{id}:
+    get:
+      summary: Get place
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Place returned
+    put:
+      summary: Update place
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Place updated
+    delete:
+      summary: Delete place
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Place deleted
+  /api/places/{id}/photos:
+    post:
+      summary: Upload place photo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Photo uploaded
+  /api/places/{id}/photos/{photoId}:
+    delete:
+      summary: Delete place photo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Photo deleted
+  /api/places/{id}/posts:
+    post:
+      summary: Create place post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Post created
+  /api/places/{id}/posts/{postId}:
+    delete:
+      summary: Delete place post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Post deleted
