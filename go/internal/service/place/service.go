@@ -31,7 +31,14 @@ func (s *Service) ListPlaces(ctx context.Context, userID string) ([]domain.Place
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return s.repository.List(userID)
+	places, err := s.repository.List(userID)
+	if err != nil {
+		return nil, err
+	}
+	if places == nil {
+		return []domain.Place{}, nil
+	}
+	return places, nil
 }
 
 func (s *Service) CreatePlace(ctx context.Context, userID string, input PlaceInput) (domain.Place, error) {
