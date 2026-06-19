@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -28,9 +29,9 @@ func RunServer() error {
 }
 
 func BuildHTTPServer(cfg Config) (*httpadapter.Server, error) {
-	repository, err := repo.NewFileRepository(cfg.DataDir)
+	repository, err := repo.NewMySQLRepository(cfg.MySQLDSN)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mysql: %w", err)
 	}
 	mediaStorage, err := buildStorage(cfg)
 	if err != nil {
