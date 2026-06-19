@@ -1,18 +1,18 @@
 export type Photo = {
   id: string;
-  filename: string;
-  content_type: string;
-  path: string;
+  user_id: string;
+  place_id: string;
   url: string;
   created_at: string;
 };
 
 export type Post = {
   id: string;
+  user_id: string;
+  place_id: string;
   title: string;
   content: string;
-  image_path: string;
-  image_url: string;
+  photo_id: string;
   created_at: string;
 };
 

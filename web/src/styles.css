@@ -510,6 +510,80 @@ h1 {
   border-top: 1px solid #e2e8f0;
 }
 
+/* ---- login page ---- */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e8f0f6, #f0f4f8);
+  padding: 20px;
+}
+.login-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.08);
+}
+.login-brand {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.login-brand h1 {
+  font-size: 1.6rem;
+  margin: 0 0 4px;
+}
+.login-brand p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+.login-form {
+  display: grid;
+  gap: 18px;
+}
+.input-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+.code-row {
+  display: flex;
+  gap: 10px;
+}
+.code-row input {
+  flex: 1;
+}
+.send-code-btn {
+  flex-shrink: 0;
+  border: 1px solid #4a90d9;
+  border-radius: 10px;
+  background: #fff;
+  color: #4a90d9;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.send-code-btn:hover:not(:disabled) {
+  background: #f0f7ff;
+}
+.send-code-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.login-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  font-size: 1rem;
+}
+
 /* ---- responsive ---- */
 @media (max-width: 767px) {
   .app-shell { padding: 8px; }
