@@ -1,0 +1,22 @@
+{
+  "places": {
+    "0001": [
+      {
+        "id": "place_1781870704330057000_2913",
+        "user_id": "0001",
+        "name": "西宁",
+        "latitude": 31.2304,
+        "longitude": 121.4737,
+        "travel_date": "",
+        "note": "",
+        "place_type": "",
+        "country": "",
+        "city": "西宁",
+        "created_at": "2026-06-19T12:05:04.330161Z",
+        "updated_at": "2026-06-19T12:05:04.330161Z",
+        "photos": [],
+        "posts": []
+      }
+    ]
+  }
+}

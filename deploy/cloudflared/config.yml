@@ -1,0 +1,12 @@
+# Cloudflare Tunnel 配置
+# 启动: ./run.sh start
+# 停止: ./run.sh stop
+# 状态: ./run.sh status
+
+tunnel: 663cdd3c-53c0-4d6c-906a-4d9a554eaf97
+credentials-file: /Users/mac/.cloudflared/663cdd3c-53c0-4d6c-906a-4d9a554eaf97.json
+
+ingress:
+  - hostname: travel.sltechblog.site
+    service: http://localhost:8080
+  - service: http_status:404
