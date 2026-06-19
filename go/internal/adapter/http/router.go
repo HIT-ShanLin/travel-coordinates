@@ -57,11 +57,11 @@ func New(placeService *place.Service, authService *authsvc.Service, dataDir stri
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(filepath.Join(dataDir, "uploads")))))
 	mux.HandleFunc("GET /api/media/{userID}/{placeID}/{filename}", h.ServeMedia)
 
-	// serve frontend
+	// serve frontend (exact root only — SPA routes handled by frontend router)
 	if webDir != "" {
 		assetDir := filepath.Join(webDir, "assets")
 		mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetDir))))
-		mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 			http.ServeFile(w, r, filepath.Join(webDir, "index.html"))
 		})
 	}
