@@ -1,0 +1,10 @@
+# Cloudflare Tunnel 配置示例
+# 复制为 config.yml 并填入实际值: cp config.example.yml config.yml
+
+tunnel: <your-tunnel-id>
+credentials-file: /Users/<user>/.cloudflared/<tunnel-uuid>.json
+
+ingress:
+  - hostname: <subdomain.your-domain.com>
+    service: http://localhost:8080
+  - service: http_status:404
