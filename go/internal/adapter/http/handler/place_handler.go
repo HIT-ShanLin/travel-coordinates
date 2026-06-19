@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strings"
 
+	"travel-coordinates/go/internal/adapter/http/middleware"
 	place "travel-coordinates/go/internal/service/place"
 )
 
-const defaultUserID = "0001"
+
 
 type PlaceHandler struct {
 	service *place.Service
@@ -49,7 +50,7 @@ func (h *PlaceHandler) Healthz(w http.ResponseWriter, r *http.Request) {
 // --- places ----------------------------------------------------------------
 
 func (h *PlaceHandler) ListPlaces(w http.ResponseWriter, r *http.Request) {
-	places, err := h.service.ListPlaces(r.Context(), defaultUserID)
+	places, err := h.service.ListPlaces(r.Context(), middleware.GetUserID(r.Context()))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -63,7 +64,7 @@ func (h *PlaceHandler) CreatePlace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	created, err := h.service.CreatePlace(r.Context(), defaultUserID, req)
+	created, err := h.service.CreatePlace(r.Context(), middleware.GetUserID(r.Context()), req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -72,7 +73,7 @@ func (h *PlaceHandler) CreatePlace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlaceHandler) GetPlace(w http.ResponseWriter, r *http.Request) {
-	found, err := h.service.GetPlace(r.Context(), defaultUserID, r.PathValue("id"))
+	found, err := h.service.GetPlace(r.Context(), middleware.GetUserID(r.Context()), r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return
@@ -86,7 +87,7 @@ func (h *PlaceHandler) UpdatePlace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	updated, err := h.service.UpdatePlace(r.Context(), defaultUserID, r.PathValue("id"), req)
+	updated, err := h.service.UpdatePlace(r.Context(), middleware.GetUserID(r.Context()), r.PathValue("id"), req)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return
@@ -95,7 +96,7 @@ func (h *PlaceHandler) UpdatePlace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlaceHandler) DeletePlace(w http.ResponseWriter, r *http.Request) {
-	if err := h.service.DeletePlace(r.Context(), defaultUserID, r.PathValue("id")); err != nil {
+	if err := h.service.DeletePlace(r.Context(), middleware.GetUserID(r.Context()), r.PathValue("id")); err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return
 	}
@@ -115,7 +116,7 @@ func (h *PlaceHandler) AddPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	updated, err := h.service.AddPhoto(r.Context(), defaultUserID, r.PathValue("id"), place.PhotoInput{
+	updated, err := h.service.AddPhoto(r.Context(), middleware.GetUserID(r.Context()), r.PathValue("id"), place.PhotoInput{
 		Filename:    header.Filename,
 		ContentType: header.Header.Get("Content-Type"),
 		File:        file,
@@ -128,7 +129,7 @@ func (h *PlaceHandler) AddPhoto(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlaceHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
-	err := h.service.DeletePhoto(r.Context(), defaultUserID, r.PathValue("id"), r.PathValue("photoId"))
+	err := h.service.DeletePhoto(r.Context(), middleware.GetUserID(r.Context()), r.PathValue("id"), r.PathValue("photoId"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return
@@ -152,7 +153,7 @@ func (h *PlaceHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
-		updated, err := h.service.AddPostAttachment(r.Context(), defaultUserID, placeID, place.PostAttachmentInput{
+		updated, err := h.service.AddPostAttachment(r.Context(), middleware.GetUserID(r.Context()), placeID, place.PostAttachmentInput{
 			Title:       strings.TrimSpace(r.FormValue("title")),
 			Content:     strings.TrimSpace(r.FormValue("content")),
 			Filename:    header.Filename,
@@ -171,7 +172,7 @@ func (h *PlaceHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	updated, err := h.service.AddPost(r.Context(), defaultUserID, placeID, req)
+	updated, err := h.service.AddPost(r.Context(), middleware.GetUserID(r.Context()), placeID, req)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -180,7 +181,7 @@ func (h *PlaceHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlaceHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
-	err := h.service.DeletePost(r.Context(), defaultUserID, r.PathValue("id"), r.PathValue("postId"))
+	err := h.service.DeletePost(r.Context(), middleware.GetUserID(r.Context()), r.PathValue("id"), r.PathValue("postId"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
 		return

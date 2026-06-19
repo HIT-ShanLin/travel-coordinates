@@ -108,12 +108,11 @@ func (s *Service) AddPhoto(ctx context.Context, userID string, placeID string, i
 	}
 	now := s.now()
 	place.AddPhoto(domain.Photo{
-		ID:          result.ID,
-		Filename:    result.Filename,
-		ContentType: result.ContentType,
-		Path:        result.Path,
-		URL:         result.URL,
-		CreatedAt:   now,
+		ID:        result.ID,
+		UserID:    userID,
+		PlaceID:   placeID,
+		URL:       result.URL,
+		CreatedAt: now,
 	}, now)
 	if err := s.repository.Save(place); err != nil {
 		return domain.Place{}, err
@@ -126,14 +125,14 @@ func (s *Service) DeletePhoto(ctx context.Context, userID string, placeID string
 	if err != nil {
 		return err
 	}
-	photo, err := place.RemovePhoto(photoID, s.now())
+	_, err = place.RemovePhoto(photoID, s.now())
 	if err != nil {
 		return err
 	}
 	if err := s.repository.Save(place); err != nil {
 		return err
 	}
-	return s.storage.Delete(ctx, photo.Path)
+	return s.storage.DeletePlace(ctx, userID, placeID)
 }
 
 func (s *Service) AddPost(ctx context.Context, userID string, placeID string, input PostInput) (domain.Place, error) {
@@ -147,10 +146,10 @@ func (s *Service) AddPost(ctx context.Context, userID string, placeID string, in
 	now := s.now()
 	place.AddPost(domain.Post{
 		ID:        s.newID("post"),
+		UserID:    userID,
+		PlaceID:   placeID,
 		Title:     strings.TrimSpace(input.Title),
 		Content:   strings.TrimSpace(input.Content),
-		ImagePath: strings.TrimSpace(input.ImagePath),
-		ImageURL:  strings.TrimSpace(input.ImagePath),
 		CreatedAt: now,
 	}, now)
 	if err := s.repository.Save(place); err != nil {
@@ -182,10 +181,11 @@ func (s *Service) AddPostAttachment(ctx context.Context, userID string, placeID 
 	now := s.now()
 	place.AddPost(domain.Post{
 		ID:        s.newID("post"),
+		UserID:    userID,
+		PlaceID:   placeID,
 		Title:     strings.TrimSpace(input.Title),
 		Content:   strings.TrimSpace(input.Content),
-		ImagePath: result.Path,
-		ImageURL:  result.URL,
+		PhotoID:   result.ID,
 		CreatedAt: now,
 	}, now)
 	if err := s.repository.Save(place); err != nil {

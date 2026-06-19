@@ -167,7 +167,7 @@ export function PlaceDrawer({
                     type="button"
                     onClick={() => setActivePhotoIndex(i)}
                   >
-                    <img src={photo.url} alt={photo.filename} />
+                    <img src={photo.url} alt="" />
                   </button>
                 ))}
               </div>
@@ -243,6 +243,7 @@ export function PlaceDrawer({
               <input
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -302,6 +303,7 @@ export function PlaceDrawer({
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={(e) => setPostFile(e.target.files?.[0] ?? null)}
                   />
                   <span>{postFile ? `📎 ${postFile.name}` : "🖼️ 添加图片"}</span>
@@ -324,7 +326,13 @@ export function PlaceDrawer({
                     </button>
                   </div>
                   {post.content && <p>{post.content}</p>}
-                  {post.image_url ? <img className="post-image" src={post.image_url} alt={post.title} /> : null}
+                  {post.photo_id ? (
+                    <img
+                      className="post-image"
+                      src={place.photos.find((ph) => ph.id === post.photo_id)?.url ?? ""}
+                      alt={post.title}
+                    />
+                  ) : null}
                 </article>
               ))}
             </div>

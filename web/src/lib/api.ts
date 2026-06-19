@@ -1,11 +1,16 @@
+import { getToken } from "./auth";
 import type { Place, PlaceInput } from "./types";
 
 const baseUrl = import.meta.env.VITE_API_URL ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const response = await fetch(`${baseUrl}${path}`, {
     headers: {
-      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(init?.body instanceof FormData
+        ? {}
+        : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -19,6 +24,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
+
+// --- auth ---
+
+export async function sendCode(phone: string): Promise<void> {
+  await request("/api/auth/send-code", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export async function login(phone: string, code: string): Promise<{
+  user: { id: string; phone: string; nickname: string };
+  token: string;
+}> {
+  return request("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ phone, code }),
+  });
+}
+
+// --- places ---
 
 export async function listPlaces(): Promise<Place[]> {
   const data = await request<{ places: Place[] }>("/api/places");
@@ -53,7 +79,9 @@ export async function uploadPhoto(placeId: string, file: File): Promise<Place> {
 }
 
 export async function deletePhoto(placeId: string, photoId: string): Promise<void> {
-  await request<void>(`/api/places/${placeId}/photos/${photoId}`, { method: "DELETE" });
+  await request<void>(`/api/places/${placeId}/photos/${photoId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function createPost(
@@ -76,6 +104,11 @@ export async function createPost(
   });
 }
 
-export async function deletePost(placeId: string, postId: string): Promise<void> {
-  await request<void>(`/api/places/${placeId}/posts/${postId}`, { method: "DELETE" });
+export async function deletePost(
+  placeId: string,
+  postId: string,
+): Promise<void> {
+  await request<void>(`/api/places/${placeId}/posts/${postId}`, {
+    method: "DELETE",
+  });
 }

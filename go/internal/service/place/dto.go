@@ -20,9 +20,8 @@ type PhotoInput struct {
 }
 
 type PostInput struct {
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	ImagePath string `json:"image_path"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 type PostAttachmentInput struct {

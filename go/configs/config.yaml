@@ -11,6 +11,21 @@ data_dir: "data"
 # Frontend static files directory (auto-detected if empty)
 web_dir: ""
 
+# --- MySQL ---
+mysql_dsn: "travel:travel123@tcp(127.0.0.1:3306)/travel_coordinates?parseTime=true&charset=utf8mb4"
+
+# --- Redis ---
+redis_addr: "127.0.0.1:6379"
+
+# --- JWT ---
+jwt_secret: "change-me-in-production"
+
+# --- Alibaba Cloud SMS ---
+sms_access_key_id: ""
+sms_access_key_secret: ""
+sms_sign_name: "云渚科技验证服务"
+sms_template_code: "100001"
+
 # --- Cloudflare R2 object storage (optional) ---
 # If all fields are set, photos and attachments are uploaded to R2.
 # If any field is empty, local disk storage is used instead.

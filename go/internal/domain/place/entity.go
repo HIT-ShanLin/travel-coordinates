@@ -23,20 +23,20 @@ type Place struct {
 }
 
 type Photo struct {
-	ID          string    `json:"id"`
-	Filename    string    `json:"filename"`
-	ContentType string    `json:"content_type"`
-	Path        string    `json:"path"`
-	URL         string    `json:"url"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	PlaceID   string    `json:"place_id"`
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Post struct {
 	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	PlaceID   string    `json:"place_id"`
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
-	ImagePath string    `json:"image_path"`
-	ImageURL  string    `json:"image_url"`
+	PhotoID   string    `json:"photo_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

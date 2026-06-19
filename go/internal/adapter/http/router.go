@@ -5,38 +5,63 @@ import (
 	"path/filepath"
 
 	"travel-coordinates/go/internal/adapter/http/handler"
+	"travel-coordinates/go/internal/adapter/http/middleware"
+	authsvc "travel-coordinates/go/internal/service/auth"
 	place "travel-coordinates/go/internal/service/place"
 )
 
 type Server struct {
-	handler *handler.PlaceHandler
-	mux     *http.ServeMux
-	webDir  string
-	dataDir string
+	handler     *handler.PlaceHandler
+	authHandler *handler.AuthHandler
+	mux         *http.ServeMux
+	jwtSecret   string
+	webDir      string
+	dataDir     string
 }
 
-func New(service *place.Service, dataDir string, webDir string) *Server {
-	h := handler.NewPlaceHandler(service)
+func New(placeService *place.Service, authService *authsvc.Service, dataDir string, webDir string, jwtSecret string) *Server {
+	h := handler.NewPlaceHandler(placeService)
+	ah := handler.NewAuthHandler(authService)
 	mux := http.NewServeMux()
-	server := &Server{handler: h, mux: mux, webDir: webDir, dataDir: dataDir}
+	server := &Server{
+		handler:     h,
+		authHandler: ah,
+		mux:         mux,
+		jwtSecret:   jwtSecret,
+		webDir:      webDir,
+		dataDir:     dataDir,
+	}
 
+	// public
+	mux.HandleFunc("/healthz", h.Healthz)
+
+	// auth (no JWT required)
+	mux.HandleFunc("POST /api/auth/send-code", ah.SendCode)
+	mux.HandleFunc("POST /api/auth/login", ah.Login)
+
+	// protected (JWT required)
+	protected := http.NewServeMux()
+	protected.HandleFunc("GET /api/places", h.ListPlaces)
+	protected.HandleFunc("POST /api/places", h.CreatePlace)
+	protected.HandleFunc("GET /api/places/{id}", h.GetPlace)
+	protected.HandleFunc("PUT /api/places/{id}", h.UpdatePlace)
+	protected.HandleFunc("DELETE /api/places/{id}", h.DeletePlace)
+	protected.HandleFunc("POST /api/places/{id}/photos", h.AddPhoto)
+	protected.HandleFunc("DELETE /api/places/{id}/photos/{photoId}", h.DeletePhoto)
+	protected.HandleFunc("POST /api/places/{id}/posts", h.AddPost)
+	protected.HandleFunc("DELETE /api/places/{id}/posts/{postId}", h.DeletePost)
+	protected.HandleFunc("GET /api/auth/me", ah.Me)
+	mux.Handle("/api/", middleware.AuthRequired(jwtSecret)(protected))
+
+	// media (public URLs for uploaded files)
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(filepath.Join(dataDir, "uploads")))))
 	mux.HandleFunc("GET /api/media/{userID}/{placeID}/{filename}", h.ServeMedia)
-	mux.HandleFunc("GET /healthz", h.Healthz)
-	mux.HandleFunc("GET /api/places", h.ListPlaces)
-	mux.HandleFunc("POST /api/places", h.CreatePlace)
-	mux.HandleFunc("GET /api/places/{id}", h.GetPlace)
-	mux.HandleFunc("PUT /api/places/{id}", h.UpdatePlace)
-	mux.HandleFunc("DELETE /api/places/{id}", h.DeletePlace)
-	mux.HandleFunc("POST /api/places/{id}/photos", h.AddPhoto)
-	mux.HandleFunc("DELETE /api/places/{id}/photos/{photoId}", h.DeletePhoto)
-	mux.HandleFunc("POST /api/places/{id}/posts", h.AddPost)
-	mux.HandleFunc("DELETE /api/places/{id}/posts/{postId}", h.DeletePost)
 
+	// serve frontend (exact root only — SPA routes handled by frontend router)
 	if webDir != "" {
 		assetDir := filepath.Join(webDir, "assets")
 		mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetDir))))
-		mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 			http.ServeFile(w, r, filepath.Join(webDir, "index.html"))
 		})
 	}
