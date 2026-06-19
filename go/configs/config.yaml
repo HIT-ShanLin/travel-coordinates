@@ -12,7 +12,7 @@ data_dir: "data"
 web_dir: ""
 
 # --- MySQL ---
-mysql_dsn: "travel:travel123@tcp(127.0.0.1:3306)/travel_coordinates?parseTime=true&charset=utf8mb4"
+mysql_dsn: ""
 
 # --- Redis ---
 redis_addr: "127.0.0.1:6379"

@@ -8,3 +8,21 @@ api/data/
 .env
 .env.local
 .env.*.local
+
+# Cloudflare Tunnel local config (contains tunnel ID / credentials path)
+deploy/cloudflared/config.yml
+
+# Data directory (contains user data / state.json)
+go/data/
+
+# Compiled binary
+go/server
+
+# Misplaced npm files
+go/package-lock.json
+
+# Old deployment files
+go/deployments/
+
+# Go env (contains API keys)
+go/.env
