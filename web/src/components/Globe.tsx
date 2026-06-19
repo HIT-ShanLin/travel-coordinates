@@ -32,6 +32,59 @@ const STYLE = {
   hoverStroke: "#4a90d9",
 };
 
+const PIN_SIZE = 40;
+const PIN_SIZE_SELECTED = 48;
+
+/* ------------------------------------------------------------------ */
+/*  Pin HTML builder                                                    */
+/* ------------------------------------------------------------------ */
+
+function buildPinHTML(place: Place, isSelected: boolean): string {
+  const photoUrl = place.photos?.[0]?.url;
+  const size = isSelected ? PIN_SIZE_SELECTED : PIN_SIZE;
+  const borderColor = isSelected ? "#4a90d9" : "#fff";
+  const borderWidth = isSelected ? 3 : 2;
+  const bg = isSelected ? "#4a90d9" : "#64748b";
+  const letter = place.name?.charAt(0) ?? "?";
+
+  const fallbackHTML = `<div style="
+    width:${size}px;height:${size}px;
+    border-radius:50%;
+    border:${borderWidth}px solid ${borderColor};
+    background:${bg};color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:${isSelected ? "1.1rem" : "0.95rem"};font-weight:700;
+    box-shadow:0 2px 12px rgba(0,0,0,0.28);
+    cursor:pointer;
+    font-family:Inter,'PingFang SC',sans-serif;
+  ">${letter}</div>`;
+
+  if (!photoUrl) return fallbackHTML;
+
+  // use <img> tag with onerror fallback to the letter circle
+  return `<div style="
+    width:${size}px;height:${size}px;
+    border-radius:50%;
+    border:${borderWidth}px solid ${borderColor};
+    box-shadow:0 2px 12px rgba(0,0,0,0.28);
+    cursor:pointer;overflow:hidden;
+    position:relative;
+    background:${bg};
+  ">
+    <img src="${photoUrl}" alt="${place.name}"
+      style="width:100%;height:100%;object-fit:cover;display:block;"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+    />
+    <div style="
+      display:none;width:100%;height:100%;
+      align-items:center;justify-content:center;
+      color:#fff;font-size:${isSelected ? "1.1rem" : "0.95rem"};font-weight:700;
+      font-family:Inter,'PingFang SC',sans-serif;
+      position:absolute;top:0;left:0;
+    ">${letter}</div>
+  </div>`;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -46,6 +99,8 @@ export function Globe({
   const AMapRef = useRef<any>(null);
   const polygonsRef = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
+  const clusterRef = useRef<any>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
   const drillStackRef = useRef<DrillEntry[]>([]);
   const [drillLabel, setDrillLabel] = useState("中国");
   const [ready, setReady] = useState(false);
@@ -196,6 +251,32 @@ export function Globe({
   }, [drillDown, renderDistrict]);
 
   /* ------------------------------------------------------------------ */
+  /*  Tooltip helpers                                                    */
+  /* ------------------------------------------------------------------ */
+
+  const showTooltip = useCallback((position: [number, number], place: Place) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const pixel = map.lngLatToContainer(position);
+    const el = tooltipRef.current;
+    if (!el) return;
+
+    el.innerHTML = `
+      <strong>${place.name}</strong>
+      <span>${[place.country, place.city].filter(Boolean).join(" · ") || "未知地点"}</span>
+    `;
+    el.style.display = "block";
+    el.style.left = `${pixel.x}px`;
+    el.style.top = `${pixel.y - PIN_SIZE / 2 - 44}px`;
+  }, []);
+
+  const hideTooltip = useCallback(() => {
+    const el = tooltipRef.current;
+    if (!el) return;
+    el.style.display = "none";
+  }, []);
+
+  /* ------------------------------------------------------------------ */
   /*  Sync markers for places                                            */
   /* ------------------------------------------------------------------ */
 
@@ -204,38 +285,116 @@ export function Globe({
     const AMap = AMapRef.current;
     if (!map || !AMap) return;
 
-    // clear old
+    // clear old cluster
+    if (clusterRef.current) {
+      try { clusterRef.current.setMap(null); } catch (e) { /* ignore */ }
+      clusterRef.current = null;
+    }
+
+    // clear old markers
     for (const m of markersRef.current) {
       map.remove(m);
     }
     markersRef.current = [];
 
-    // add new
+    if (places.length === 0) return;
+
+    // build new markers
+    const newMarkers: any[] = [];
     for (const place of places) {
       const isSelected = place.id === selectedPlaceId;
-      const content = `<div style="
-        width:${isSelected ? '16' : '11'}px;
-        height:${isSelected ? '16' : '11'}px;
-        background:${isSelected ? '#f59e0b' : '#4a90d9'};
-        border:${isSelected ? '3px solid #d97706' : '2px solid #fff'};
-        border-radius:50%;
-        box-shadow:0 1px 4px rgba(0,0,0,0.2);
-        cursor:pointer;
-      "></div>`;
+      const content = buildPinHTML(place, isSelected);
 
       const marker = new AMap.Marker({
-        map,
         position: [place.longitude, place.latitude],
         content,
-        offset: new AMap.Pixel(isSelected ? -8 : -5, isSelected ? -8 : -5),
+        offset: new AMap.Pixel(
+          isSelected ? -PIN_SIZE_SELECTED / 2 : -PIN_SIZE / 2,
+          isSelected ? -PIN_SIZE_SELECTED / 2 : -PIN_SIZE / 2,
+        ),
         title: place.name,
         zIndex: isSelected ? 200 : 100,
       });
 
-      marker.on("click", () => onSelectPlace(place.id));
-      markersRef.current.push(marker);
+      // hover → tooltip (PC only)
+      marker.on("mouseover", () => {
+        showTooltip([place.longitude, place.latitude], place);
+        // scale up effect via DOM
+        const contentEl = marker.getContent?.();
+        if (contentEl) {
+          contentEl.style.transform = "scale(1.1)";
+        }
+      });
+      marker.on("mouseout", () => {
+        hideTooltip();
+        const contentEl = marker.getContent?.();
+        if (contentEl) {
+          contentEl.style.transform = "scale(1)";
+        }
+      });
+
+      // click → flyTo + select
+      marker.on("click", () => {
+        hideTooltip();
+        map.setZoomAndCenter(12, [place.longitude, place.latitude], true, 800);
+        onSelectPlace(place.id);
+      });
+
+      newMarkers.push(marker);
     }
-  }, [places, selectedPlaceId, onSelectPlace]);
+
+    markersRef.current = newMarkers;
+
+    // clustering — guarded against AMap API differences
+    if (AMap.MarkerClusterer) {
+      try {
+        const cluster = new AMap.MarkerClusterer(map, newMarkers, {
+          gridSize: 80,
+          minClusterSize: 2,
+          maxZoom: 13,
+          averageCenter: true,
+          clusterByZoomChange: false,
+          styles: [
+            {
+              url: "",
+              size: { width: 44, height: 44 },
+              textColor: "#fff",
+              textSize: 13,
+            },
+          ],
+          renderClusterMarker: (context: any) => {
+            const count = context.count;
+            const html = `<div style="
+              width:44px;height:44px;
+              border-radius:50%;
+              background:linear-gradient(135deg,#4a90d9,#2563eb);
+              color:#fff;
+              display:flex;align-items:center;justify-content:center;
+              font-size:${count >= 100 ? "0.75rem" : "0.85rem"};font-weight:700;
+              box-shadow:0 2px 12px rgba(37,99,235,0.4);
+              cursor:pointer;
+              border:2px solid #fff;
+              font-family:Inter,'PingFang SC',sans-serif;
+            ">+${count}</div>`;
+            context.marker.setContent(html);
+            context.marker.setOffset(new AMap.Pixel(-22, -22));
+          },
+        });
+        clusterRef.current = cluster;
+      } catch (e) {
+        console.warn("聚类初始化失败，使用独立标记:", e);
+        clusterRef.current = null;
+        for (const m of newMarkers) {
+          m.setMap(map);
+        }
+      }
+    } else {
+      // no cluster plugin — add markers directly to map
+      for (const m of newMarkers) {
+        m.setMap(map);
+      }
+    }
+  }, [places, selectedPlaceId, onSelectPlace, showTooltip, hideTooltip]);
 
   /* ------------------------------------------------------------------ */
   /*  Init Amap                                                          */
@@ -261,7 +420,7 @@ export function Globe({
     AMapLoader.load({
       key,
       version: "2.0",
-      plugins: ["AMap.DistrictSearch"],
+      plugins: ["AMap.DistrictSearch", "AMap.MarkerClusterer"],
     })
       .then((AMap: any) => {
         AMapRef.current = AMap;
@@ -303,6 +462,40 @@ export function Globe({
   }, [ready, syncMarkers]);
 
   /* ------------------------------------------------------------------ */
+  /*  Listen for locate event from App.tsx                               */
+  /* ------------------------------------------------------------------ */
+
+  useEffect(() => {
+    function handleLocate(e: Event) {
+      const map = mapRef.current;
+      const AMap = AMapRef.current;
+      if (!map || !AMap) return;
+      const { latitude, longitude } = (e as CustomEvent).detail;
+      map.setZoomAndCenter(14, [longitude, latitude], true, 1200);
+      // add a temporary "you are here" marker
+      const marker = new AMap.Marker({
+        map,
+        position: [longitude, latitude],
+        content: `<div style="
+          width:16px;height:16px;
+          border-radius:50%;
+          background:#3b82f6;
+          border:3px solid #fff;
+          box-shadow:0 0 0 6px rgba(59,130,246,0.3),0 2px 8px rgba(0,0,0,0.3);
+        "></div>`,
+        offset: new AMap.Pixel(-8, -8),
+        zIndex: 300,
+      });
+      // remove after 3 seconds
+      setTimeout(() => {
+        map.remove(marker);
+      }, 3000);
+    }
+    window.addEventListener("locate", handleLocate);
+    return () => window.removeEventListener("locate", handleLocate);
+  }, [ready]);
+
+  /* ------------------------------------------------------------------ */
   /*  Render                                                             */
   /* ------------------------------------------------------------------ */
 
@@ -311,6 +504,19 @@ export function Globe({
       <div
         ref={containerRef}
         style={{ position: "absolute", inset: 0 }}
+      />
+
+      {/* tooltip */}
+      <div
+        ref={tooltipRef}
+        className="pin-tooltip"
+        style={{
+          display: "none",
+          position: "absolute",
+          zIndex: 30,
+          transform: "translateX(-50%)",
+          pointerEvents: "none",
+        }}
       />
 
       {!ready && (
