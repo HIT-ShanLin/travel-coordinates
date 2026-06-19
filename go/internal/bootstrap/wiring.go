@@ -67,8 +67,8 @@ func BuildHTTPServer(cfg Config) (*httpadapter.Server, error) {
 	// Services
 	placeService := placesvc.New(placeRepo, mediaStorage)
 
-	smsCli := sms.New(cfg.SMSAccessKeyID, cfg.SMSAccessKeySecret, cfg.SMSSignName, cfg.SMSTemplateCode)
-	authService := authsvc.New(db, redisCli, smsCli, cfg.JWTSecret)
+	smsCli := sms.New(cfg.SMSAccessKeyID, cfg.SMSAccessKeySecret)
+	authService := authsvc.New(db, redisCli, smsCli, cfg.SMSSignName, cfg.SMSTemplateCode, cfg.JWTSecret)
 
 	return httpadapter.New(placeService, authService, cfg.DataDir, cfg.WebDir, cfg.JWTSecret), nil
 }

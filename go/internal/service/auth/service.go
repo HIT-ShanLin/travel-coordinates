@@ -23,18 +23,22 @@ type User struct {
 }
 
 type Service struct {
-	db     *sql.DB
-	redis  *redis.Client
-	sms    *sms.AliyunClient
-	jwtSec string
+	db           *sql.DB
+	redis        *redis.Client
+	sms          *sms.AliyunClient
+	smsSignName  string
+	smsTplCode   string
+	jwtSec       string
 }
 
-func New(db *sql.DB, redisCli *redis.Client, smsCli *sms.AliyunClient, jwtSecret string) *Service {
+func New(db *sql.DB, redisCli *redis.Client, smsCli *sms.AliyunClient, smsSignName, smsTemplateCode, jwtSecret string) *Service {
 	return &Service{
-		db:     db,
-		redis:  redisCli,
-		sms:    smsCli,
-		jwtSec: jwtSecret,
+		db:          db,
+		redis:       redisCli,
+		sms:         smsCli,
+		smsSignName: smsSignName,
+		smsTplCode:  smsTemplateCode,
+		jwtSec:      jwtSecret,
 	}
 }
 
@@ -52,7 +56,7 @@ func (s *Service) SendCode(ctx context.Context, phone string) error {
 	}
 
 	// send via Alibaba Cloud SMS
-	if err := s.sms.SendCode(phone, code); err != nil {
+	if err := s.sms.SendCode(phone, s.smsSignName, s.smsTplCode, code); err != nil {
 		// don't fail — code is stored, SMS may have issues
 		fmt.Printf("SMS send failed for %s: %v\n", phone, err)
 	}
