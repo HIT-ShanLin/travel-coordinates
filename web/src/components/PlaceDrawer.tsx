@@ -243,6 +243,7 @@ export function PlaceDrawer({
               <input
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -302,6 +303,7 @@ export function PlaceDrawer({
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={(e) => setPostFile(e.target.files?.[0] ?? null)}
                   />
                   <span>{postFile ? `📎 ${postFile.name}` : "🖼️ 添加图片"}</span>

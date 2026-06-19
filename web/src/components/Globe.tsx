@@ -21,6 +21,23 @@ interface DrillEntry {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Point-in-polygon (ray casting)                                     */
+/* ------------------------------------------------------------------ */
+
+function pointInPolygon(point: [number, number], polygon: [number, number][]): boolean {
+  let inside = false;
+  const [px, py] = point;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, yi] = polygon[i];
+    const [xj, yj] = polygon[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Style tokens                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -99,6 +116,9 @@ export function Globe({
   const AMapRef = useRef<any>(null);
   const polygonsRef = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
+  const labelsRef = useRef<any[]>([]);
+  const placesRef = useRef<Place[]>(places);
+  placesRef.current = places;
   const clusterRef = useRef<any>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const drillStackRef = useRef<DrillEntry[]>([]);
@@ -117,6 +137,10 @@ export function Globe({
       map.remove(p);
     }
     polygonsRef.current = [];
+    for (const l of labelsRef.current) {
+      map.remove(l);
+    }
+    labelsRef.current = [];
   }, []);
 
   /* ------------------------------------------------------------------ */
@@ -175,6 +199,49 @@ export function Globe({
       }
 
       map.setFitView(polygonsRef.current);
+
+      // add place count labels
+      const currentPlaces = placesRef.current;
+      for (const poly of polygonsRef.current) {
+        const districtName = (poly as any)._districtName as string;
+        const boundary = poly.getPath() as [number, number][];
+        if (!boundary || boundary.length === 0) continue;
+
+        // count places inside this polygon
+        const count = currentPlaces.filter((p) =>
+          pointInPolygon([p.longitude, p.latitude], boundary),
+        ).length;
+        if (count === 0) continue;
+
+        // calculate center of polygon for label position
+        let cx = 0,
+          cy = 0;
+        for (const [x, y] of boundary) {
+          cx += x;
+          cy += y;
+        }
+        cx /= boundary.length;
+        cy /= boundary.length;
+
+        const label = new AMap.Text({
+          map,
+          text: `${districtName} ${count}`,
+          position: [cx, cy],
+          style: {
+            "background": "rgba(74,144,217,0.85)",
+            "border": "none",
+            "border-radius": "8px",
+            "padding": "2px 8px",
+            "color": "#fff",
+            "font-size": "11px",
+            "font-weight": "600",
+            "font-family": "Inter, PingFang SC, sans-serif",
+            "white-space": "nowrap",
+            "pointer-events": "none",
+          },
+        });
+        labelsRef.current.push(label);
+      }
     },
     [clearPolygons],
   );
