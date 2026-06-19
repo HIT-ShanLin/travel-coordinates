@@ -74,6 +74,13 @@ h1 {
   background: #e8f0f6;
 }
 .map-wrap canvas { position: absolute !important; inset: 0; }
+
+/* AMap logo — keep visible but ensure it doesn't overlap sheet/drawer */
+.map-wrap .amap-logo,
+.map-wrap .amap-copyright {
+  z-index: 10 !important;
+  bottom: 8px !important;
+}
 .loading-inline, .error-inline {
   position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
   z-index: 10; padding: 8px 20px; border-radius: 10px; font-size: 0.88rem;
