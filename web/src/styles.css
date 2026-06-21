@@ -721,3 +721,5 @@ h1 {
 .custom-pin.active { border-color: #2563eb; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(37,99,235,0.3); }
 .temp-pin { width: 24px; height: 24px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,0.2); animation: pin-pulse 1.5s ease-in-out infinite; }
 @keyframes pin-pulse { 0%, 100% { box-shadow: 0 0 0 6px rgba(37,99,235,0.2); } 50% { box-shadow: 0 0 0 14px rgba(37,99,235,0); } }
+
+.chip-count { font-weight: 400; font-size: 0.85em; color: #64748b; }

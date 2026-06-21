@@ -3,7 +3,7 @@ import PhotoGrid from './PhotoGrid';
 import LocationPicker, { type LocationValue } from './LocationPicker';
 import PostContent from './PostContent';
 import type { PhotoDraft } from '../lib/types';
-import { createPlace, uploadPhoto, createPost, reverseGeocode } from '../lib/api';
+import { createPlace, uploadPhoto, createPost, deletePlace, reverseGeocode } from '../lib/api';
 
 interface Props {
   mode: 'create' | 'append';
@@ -65,6 +65,7 @@ export default function UnifiedPostEditor({
     }
     setError(null);
 
+    let createdPlaceId: string | null = null;
     try {
       setStep('creating_place');
       const name = location.name || `${location.city || ''}·记忆`;
@@ -78,6 +79,7 @@ export default function UnifiedPostEditor({
         note: content,
         place_type: '',
       });
+      createdPlaceId = place.id;
 
       if (photos.length > 0) {
         setStep('uploading_photos');
@@ -102,6 +104,10 @@ export default function UnifiedPostEditor({
     } catch (err: any) {
       setError(err.message || '发布失败，请重试');
       setStep('idle');
+      // Rollback: any step after createPlace fails → delete the orphaned place
+      if (createdPlaceId) {
+        try { await deletePlace(createdPlaceId); } catch { /* best effort */ }
+      }
     }
   };
 
@@ -115,7 +121,6 @@ export default function UnifiedPostEditor({
       }}
     >
       {isMobile ? (
-        /* Mobile: fullscreen flow */
         <div className="editor-mobile">
           <div className="editor-mobile-header">
             <button className="ghost-btn" onClick={onClose}>
@@ -149,7 +154,6 @@ export default function UnifiedPostEditor({
           )}
         </div>
       ) : (
-        /* Desktop: dual-pane modal */
         <div className="editor-desktop">
           <div className="editor-header">
             <h2>{mode === 'create' ? '✨ 记录足迹' : '📝 添加记忆'}</h2>

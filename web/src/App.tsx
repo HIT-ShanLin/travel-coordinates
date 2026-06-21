@@ -275,23 +275,41 @@ export default function App() {
             ＋
           </button>
 
-          {/* chip bar */}
+          {/* chip bar — grouped by city */}
           {filteredPlaces.length > 0 && (
             <div className="chip-bar">
-              {filteredPlaces.map((place) => (
-                <button
-                  key={place.id}
-                  className={`place-chip ${place.id === selectedPlaceId ? "active" : ""}`}
-                  type="button"
-                  onClick={() => openMemories(place.id)}
-                >
-                  <strong>{place.name}</strong>
-                  <span>
-                    {place.country || "..."}
-                    {place.city ? ` · ${place.city}` : ""}
-                  </span>
-                </button>
-              ))}
+              {(() => {
+                // Group places by city (fallback: by name)
+                const groups = new Map<string, { city: string; country: string; firstId: string; count: number }>();
+                for (const p of filteredPlaces) {
+                  const key = p.city || p.name;
+                  const existing = groups.get(key);
+                  if (existing) {
+                    existing.count++;
+                  } else {
+                    groups.set(key, {
+                      city: p.city || p.name,
+                      country: p.country,
+                      firstId: p.id,
+                      count: 1,
+                    });
+                  }
+                }
+                return Array.from(groups.values()).map((g) => (
+                  <button
+                    key={g.firstId}
+                    className={`place-chip ${filteredPlaces.some((p) => p.id === selectedPlaceId && (p.city || p.name) === g.city) ? "active" : ""}`}
+                    type="button"
+                    onClick={() => openMemories(g.firstId)}
+                  >
+                    <strong>
+                      {g.city}
+                      {g.count > 1 && <span className="chip-count"> ({g.count})</span>}
+                    </strong>
+                    <span>{g.country || "..."}</span>
+                  </button>
+                ));
+              })()}
             </div>
           )}
         </div>
