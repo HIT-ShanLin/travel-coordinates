@@ -53,7 +53,7 @@ function buildMemoryCards(place: Place): MemoryCardData[] {
   return cards;
 }
 
-const SWIPE_THRESHOLD = 60; // px
+const SWIPE_THRESHOLD = 80;
 
 export function PlaceDrawer({
   place,
@@ -70,56 +70,84 @@ export function PlaceDrawer({
   const [cards, setCards] = useState<MemoryCardData[]>([]);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
-  // Swipe state
-  const [swiping, setSwiping] = useState(false);
+  // Card stack state
   const [swipeOffset, setSwipeOffset] = useState(0);
-  const touchStartX = useRef(0);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const touchStart = useRef({ x: 0, y: 0 });
 
-  const siblingCount = siblingPlaces?.length ?? 0;
-  const currentIndex = siblingPlaces?.findIndex((p) => p.id === place?.id) ?? 0;
-  const showSwipe = siblingCount > 1 && onNavigate;
+  const siblings = siblingPlaces ?? [];
+  const currentIdx = siblings.findIndex((p) => p.id === place?.id);
+  const hasSiblings = siblings.length > 1 && onNavigate;
+  // Show next 2 cards behind current (for stack effect)
+  const stackedCards = hasSiblings
+    ? [
+        siblings[currentIdx],
+        siblings[(currentIdx + 1) % siblings.length],
+        siblings[(currentIdx + 2) % siblings.length],
+      ].filter(Boolean)
+    : place ? [place] : [];
 
   useEffect(() => {
     if (place) {
       setCards(buildMemoryCards(place));
       setEditing(false);
       setSwipeOffset(0);
+      setIsAnimating(false);
     } else {
       setCards([]);
     }
   }, [place]);
 
-  // Touch handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (!showSwipe) return;
-    touchStartX.current = e.touches[0].clientX;
-    setSwiping(true);
-  }, [showSwipe]);
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!hasSiblings || currentIdx < 0) return;
+      touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      setIsSwiping(true);
+    },
+    [hasSiblings, currentIdx],
+  );
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!swiping || !showSwipe) return;
-    const delta = e.touches[0].clientX - touchStartX.current;
-    // Clamp: don't allow swiping past boundaries
-    if ((currentIndex === 0 && delta > 0) || (currentIndex === siblingCount - 1 && delta < 0)) {
-      setSwipeOffset(delta * 0.3); // rubber band
-    } else {
-      setSwipeOffset(delta);
-    }
-  }, [swiping, showSwipe, currentIndex, siblingCount]);
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isSwiping) return;
+      const dx = e.touches[0].clientX - touchStart.current.x;
+      // Rubber band at edges
+      if ((currentIdx === 0 && dx > 0) || (currentIdx === siblings.length - 1 && dx < 0)) {
+        setSwipeOffset(dx * 0.25);
+      } else {
+        setSwipeOffset(dx);
+      }
+    },
+    [isSwiping, currentIdx, siblings.length],
+  );
 
   const handleTouchEnd = useCallback(() => {
-    if (!showSwipe) return;
-    setSwiping(false);
+    if (!hasSiblings || currentIdx < 0) {
+      setIsSwiping(false);
+      setSwipeOffset(0);
+      return;
+    }
+    setIsSwiping(false);
+
     if (Math.abs(swipeOffset) > SWIPE_THRESHOLD) {
-      if (swipeOffset < 0 && currentIndex < siblingCount - 1) {
-        onNavigate!(siblingPlaces![currentIndex + 1].id);
-      } else if (swipeOffset > 0 && currentIndex > 0) {
-        onNavigate!(siblingPlaces![currentIndex - 1].id);
+      const dir = swipeOffset < 0 ? 1 : -1;
+      const newIdx = currentIdx + dir;
+      if (newIdx >= 0 && newIdx < siblings.length) {
+        // Animate card out
+        setIsAnimating(true);
+        setSwipeOffset(dir > 0 ? -window.innerWidth : window.innerWidth);
+        setTimeout(() => {
+          onNavigate!(siblings[newIdx].id);
+        }, 250);
+        return;
       }
     }
+    // Snap back
+    setIsAnimating(true);
     setSwipeOffset(0);
-  }, [showSwipe, swipeOffset, currentIndex, siblingCount, siblingPlaces, onNavigate]);
+    setTimeout(() => setIsAnimating(false), 300);
+  }, [hasSiblings, currentIdx, swipeOffset, siblings, onNavigate]);
 
   if (!place) {
     return (
@@ -146,12 +174,12 @@ export function PlaceDrawer({
     }
   };
 
-  const heroUrl = cards.find((c) => c.photoUrls.length > 0)?.photoUrls[activePhotoIndex] ?? null;
+  const heroUrl =
+    cards.find((c) => c.photoUrls.length > 0)?.photoUrls[activePhotoIndex] ?? null;
 
   return (
     <div
-      className="panel-content"
-      ref={panelRef}
+      className="panel-content card-stack-wrapper"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -175,144 +203,217 @@ export function PlaceDrawer({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <div
-          className="swipe-container"
-          style={{
-            transform: `translateX(${swipeOffset}px)`,
-            transition: swiping ? 'none' : 'transform 0.3s ease-out',
-          }}
-        >
+        <>
           {/* Dot indicators */}
-          {showSwipe && (
+          {hasSiblings && (
             <div className="swipe-dots">
-              {siblingPlaces!.map((p, i) => (
+              {siblings.map((p, i) => (
                 <span
                   key={p.id}
-                  className={`swipe-dot ${i === currentIndex ? 'active' : ''}`}
+                  className={`swipe-dot ${i === currentIdx ? 'active' : ''}`}
                   onClick={() => onNavigate!(p.id)}
                 />
               ))}
             </div>
           )}
 
-          {/* Header */}
-          <div className="drawer-header">
-            <div>
-              <h3>{place.name}</h3>
-              <p className="drawer-subtitle">
-                {place.country} · {place.city}
-              </p>
-            </div>
-            <div className="drawer-header-actions">
-              <button className="mini-btn" onClick={() => setEditing(true)}>
-                编辑
-              </button>
-              <button className="mini-btn" onClick={onClose}>
-                ✕
-              </button>
-            </div>
-          </div>
+          {/* Card stack */}
+          <div className="card-stack">
+            {stackedCards.map((sibling, i) => {
+              const isTop = i === 0;
+              const scale = isTop ? 1 : 0.95 - i * 0.03;
+              const translateY = i * -8;
+              const zIndex = stackedCards.length - i;
+              const opacity = isTop ? 1 : 0.5 - i * 0.2;
 
-          {/* Hero gallery */}
-          {heroUrl ? (
-            <div className="hero-gallery">
-              <div
-                className="hero-image"
-                style={{ backgroundImage: `url(${heroUrl})` }}
-              />
-              <div className="hero-nav">
-                <button
-                  className="hero-nav-btn"
-                  onClick={() =>
-                    setActivePhotoIndex(
-                      (p) =>
-                        (p - 1 + (cards.filter((c) => c.photoUrls.length > 0).length || 1)) %
-                        (cards.filter((c) => c.photoUrls.length > 0).length || 1),
-                    )
-                  }
+              return (
+                <div
+                  key={sibling.id}
+                  className="card-stack-item"
+                  style={{
+                    transform: isTop
+                      ? `translateX(${swipeOffset}px) rotate(${swipeOffset * 0.05}deg)`
+                      : `scale(${scale}) translateY(${translateY}px)`,
+                    zIndex,
+                    opacity,
+                    transition: isSwiping ? 'none' : 'transform 0.3s ease-out, opacity 0.3s',
+                    pointerEvents: isTop ? 'auto' : 'none',
+                  }}
                 >
-                  ‹
-                </button>
-                <span className="hero-dots">
-                  {cards
-                    .filter((c) => c.photoUrls.length > 0)
-                    .map((_, i) => (
-                      <span
-                        key={i}
-                        className={`hero-dot ${i === activePhotoIndex ? 'active' : ''}`}
-                        onClick={() => setActivePhotoIndex(i)}
-                      />
-                    ))}
-                </span>
-                <button
-                  className="hero-nav-btn"
-                  onClick={() =>
-                    setActivePhotoIndex(
-                      (p) =>
-                        (p + 1) % (cards.filter((c) => c.photoUrls.length > 0).length || 1),
-                    )
-                  }
-                >
-                  ›
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="hero-empty">暂无照片</div>
-          )}
-
-          {/* Metadata */}
-          <div className="info-block">
-            <div className="meta-grid">
-              <div>
-                <span className="meta-label">旅行日期</span>
-                <span>{place.travel_date || '未设置'}</span>
-              </div>
-              <div>
-                <span className="meta-label">类型</span>
-                <span>{place.place_type || '未分类'}</span>
-              </div>
-            </div>
-            {place.note && <p className="info-note">{place.note}</p>}
+                  <CardContent
+                    place={sibling}
+                    cards={isTop ? cards : []}
+                    heroUrl={isTop ? heroUrl : null}
+                    activePhotoIndex={isTop ? activePhotoIndex : 0}
+                    onSetActivePhoto={isTop ? setActivePhotoIndex : undefined}
+                    onEdit={isTop ? () => setEditing(true) : undefined}
+                    onClose={isTop ? onClose : undefined}
+                    onDeleteCard={isTop ? handleDeleteCard : undefined}
+                    onAppendMemory={isTop ? onAppendMemory : undefined}
+                    onDeletePlace={isTop ? onDeletePlace : undefined}
+                  />
+                </div>
+              );
+            })}
           </div>
+        </>
+      )}
+    </div>
+  );
+}
 
-          {/* Memory cards */}
-          <div className="section-block">
-            <h4>旅行记忆 ({cards.length})</h4>
-            <div className="memory-list">
-              {cards.map((card) => (
-                <MemoryCard
-                  key={card.id}
-                  card={card}
-                  onEdit={onAppendMemory}
-                  onDelete={() => handleDeleteCard(card.id, card.type)}
-                />
-              ))}
-            </div>
-          </div>
+/* ------------------------------------------------------------------ */
+/*  CardContent — renders one place's full content                     */
+/* ------------------------------------------------------------------ */
 
-          {/* Bottom actions */}
-          <div className="drawer-bottom-actions">
-            {onAppendMemory && (
-              <button className="primary-btn" onClick={onAppendMemory}>
-                ＋ 添加记忆
-              </button>
-            )}
-          </div>
-
-          {/* Delete place */}
-          <div className="section-block">
-            <button
-              className="mini-btn mc-delete-btn"
-              onClick={() => {
-                if (confirm('确定删除此地点及其所有记忆？此操作不可撤销。')) {
-                  onDeletePlace();
-                }
-              }}
-            >
-              删除此地点
+function CardContent({
+  place,
+  cards,
+  heroUrl,
+  activePhotoIndex,
+  onSetActivePhoto,
+  onEdit,
+  onClose,
+  onDeleteCard,
+  onAppendMemory,
+  onDeletePlace,
+}: {
+  place: Place;
+  cards: MemoryCardData[];
+  heroUrl: string | null;
+  activePhotoIndex: number;
+  onSetActivePhoto?: React.Dispatch<React.SetStateAction<number>>;
+  onEdit?: () => void;
+  onClose?: () => void;
+  onDeleteCard?: (id: string, type: string) => void;
+  onAppendMemory?: () => void;
+  onDeletePlace?: () => void;
+}) {
+  return (
+    <div className="card-content">
+      {/* Header */}
+      <div className="drawer-header">
+        <div>
+          <h3>{place.name}</h3>
+          <p className="drawer-subtitle">
+            {place.country} · {place.city}
+          </p>
+        </div>
+        <div className="drawer-header-actions">
+          {onEdit && (
+            <button className="mini-btn" onClick={onEdit}>
+              编辑
             </button>
+          )}
+          {onClose && (
+            <button className="mini-btn" onClick={onClose}>
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Hero gallery */}
+      {heroUrl ? (
+        <div className="hero-gallery">
+          <div className="hero-image" style={{ backgroundImage: `url(${heroUrl})` }} />
+          {cards.filter((c) => c.photoUrls.length > 0).length > 1 && onSetActivePhoto && (
+            <div className="hero-nav">
+              <button
+                className="hero-nav-btn"
+                onClick={() =>
+                  onSetActivePhoto((p) =>
+                    (p - 1 + (cards.filter((c) => c.photoUrls.length > 0).length || 1)) %
+                    (cards.filter((c) => c.photoUrls.length > 0).length || 1),
+                  )
+                }
+              >
+                ‹
+              </button>
+              <span className="hero-dots">
+                {cards
+                  .filter((c) => c.photoUrls.length > 0)
+                  .map((_, i) => (
+                    <span
+                      key={i}
+                      className={`hero-dot ${i === activePhotoIndex ? 'active' : ''}`}
+                      onClick={() => onSetActivePhoto(i)}
+                    />
+                  ))}
+              </span>
+              <button
+                className="hero-nav-btn"
+                onClick={() =>
+                  onSetActivePhoto((p) =>
+                    (p + 1) % (cards.filter((c) => c.photoUrls.length > 0).length || 1),
+                  )
+                }
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="hero-empty">暂无照片</div>
+      )}
+
+      {/* Metadata */}
+      <div className="info-block">
+        <div className="meta-grid">
+          <div>
+            <span className="meta-label">旅行日期</span>
+            <span>{place.travel_date || '未设置'}</span>
           </div>
+          <div>
+            <span className="meta-label">类型</span>
+            <span>{place.place_type || '未分类'}</span>
+          </div>
+        </div>
+        {place.note && <p className="info-note">{place.note}</p>}
+      </div>
+
+      {/* Memory cards */}
+      {cards.length > 0 && (
+        <div className="section-block">
+          <h4>旅行记忆 ({cards.length})</h4>
+          <div className="memory-list">
+            {cards.map((card) => (
+              <MemoryCard
+                key={card.id}
+                card={card}
+                onEdit={onAppendMemory}
+                onDelete={
+                  onDeleteCard ? () => onDeleteCard(card.id, card.type) : undefined
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom actions */}
+      {onAppendMemory && (
+        <div className="drawer-bottom-actions">
+          <button className="primary-btn" onClick={onAppendMemory}>
+            ＋ 添加记忆
+          </button>
+        </div>
+      )}
+
+      {/* Delete place */}
+      {onDeletePlace && (
+        <div className="section-block">
+          <button
+            className="mini-btn mc-delete-btn"
+            onClick={() => {
+              if (confirm('确定删除此地点及其所有记忆？此操作不可撤销。')) {
+                onDeletePlace();
+              }
+            }}
+          >
+            删除此地点
+          </button>
         </div>
       )}
     </div>

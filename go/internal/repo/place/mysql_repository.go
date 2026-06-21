@@ -34,8 +34,7 @@ func NewMySQLRepository(dsn string) (*MySQLRepository, error) {
 
 func (r *MySQLRepository) List(userID string) ([]domain.Place, error) {
 	rows, err := r.db.Query(
-		"SELECT id, user_id, name, latitude, longitude, country, city, travel_date, note, place_type, created_at, updated_at FROM places WHERE user_id = ? ORDER BY created_at DESC",
-		userID,
+		"SELECT id, user_id, name, latitude, longitude, country, city, travel_date, note, place_type, created_at, updated_at FROM places ORDER BY created_at DESC",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list places: %w", err)
