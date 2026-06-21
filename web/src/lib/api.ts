@@ -1,5 +1,5 @@
 import { getToken } from "./auth";
-import type { Place, PlaceInput } from "./types";
+import type { Place, PlaceInput, GeoItem, ReverseGeoResult } from "./types";
 
 const baseUrl = import.meta.env.VITE_API_URL ?? "";
 
@@ -111,4 +111,23 @@ export async function deletePost(
   await request<void>(`/api/places/${placeId}/posts/${postId}`, {
     method: "DELETE",
   });
+}
+
+// --- geo ---
+
+export async function suggestPlaces(keyword: string): Promise<GeoItem[]> {
+  if (!keyword.trim()) return [];
+  const data = await request<{ suggestions: GeoItem[] }>(
+    `/api/geo/suggest?q=${encodeURIComponent(keyword)}`,
+  );
+  return data.suggestions ?? [];
+}
+
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<ReverseGeoResult> {
+  return request<ReverseGeoResult>(
+    `/api/geo/reverse?lat=${lat}&lng=${lng}`,
+  );
 }
