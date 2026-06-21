@@ -11,6 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	httpadapter "travel-coordinates/go/internal/adapter/http"
+	"travel-coordinates/go/internal/adapter/http/middleware"
 	"travel-coordinates/go/internal/adapter/sms"
 	"travel-coordinates/go/internal/adapter/storage"
 	"travel-coordinates/go/internal/adapter/storage/local"
@@ -28,7 +29,7 @@ func RunServer() error {
 		return err
 	}
 	log.Printf("travel coordinates api listening on :%s", cfg.Port)
-	err = http.ListenAndServe(":"+cfg.Port, server.Mux())
+	err = http.ListenAndServe(":"+cfg.Port, middleware.CORS(server.Mux()))
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
