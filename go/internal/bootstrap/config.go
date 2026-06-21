@@ -21,6 +21,9 @@ type Config struct {
 	// Redis
 	RedisAddr string
 
+	// Amap
+	AmapKey string
+
 	// JWT
 	JWTSecret string
 
@@ -53,6 +56,7 @@ func LoadConfig() Config {
 		DataDir:            valueOr(values["data_dir"], filepath.Join("data")),
 		WebDir:             values["web_dir"],
 		MySQLDSN:           values["mysql_dsn"],
+		AmapKey:            values["amap_key"],
 		RedisAddr:          valueOr(values["redis_addr"], "127.0.0.1:6379"),
 		JWTSecret:          valueOr(values["jwt_secret"], "change-me"),
 		SMSAccessKeyID:     values["sms_access_key_id"],
@@ -69,6 +73,7 @@ func LoadConfig() Config {
 	cfg.Port = envOr("PORT", cfg.Port)
 	cfg.DataDir = envOr("TRAVEL_COORDINATES_DATA_DIR", cfg.DataDir)
 	cfg.WebDir = envOr("TRAVEL_COORDINATES_WEB_DIR", cfg.WebDir)
+	cfg.AmapKey = envOr("AMAP_KEY", cfg.AmapKey)
 	cfg.MySQLDSN = envOr("MYSQL_DSN", cfg.MySQLDSN)
 	cfg.RedisAddr = envOr("REDIS_ADDR", cfg.RedisAddr)
 	cfg.JWTSecret = envOr("JWT_SECRET", cfg.JWTSecret)

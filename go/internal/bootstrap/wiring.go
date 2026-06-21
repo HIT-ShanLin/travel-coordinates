@@ -17,6 +17,7 @@ import (
 	"travel-coordinates/go/internal/adapter/storage/r2"
 	repo "travel-coordinates/go/internal/repo/place"
 	authsvc "travel-coordinates/go/internal/service/auth"
+	geosvc "travel-coordinates/go/internal/service/geo"
 	placesvc "travel-coordinates/go/internal/service/place"
 )
 
@@ -70,7 +71,10 @@ func BuildHTTPServer(cfg Config) (*httpadapter.Server, error) {
 	smsCli := sms.New(cfg.SMSAccessKeyID, cfg.SMSAccessKeySecret)
 	authService := authsvc.New(db, redisCli, smsCli, cfg.SMSSignName, cfg.SMSTemplateCode, cfg.JWTSecret)
 
-	return httpadapter.New(placeService, authService, cfg.DataDir, cfg.WebDir, cfg.JWTSecret), nil
+	// Geo service
+	geoService := geosvc.New(db, cfg.AmapKey)
+
+	return httpadapter.New(placeService, authService, geoService, cfg.DataDir, cfg.WebDir, cfg.JWTSecret), nil
 }
 
 func buildStorage(cfg Config) (storage.Storage, error) {

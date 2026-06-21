@@ -5,6 +5,9 @@
 # HTTP server listen port
 port: "8080"
 
+# --- Amap (高德地图) ---
+amap_key: ""
+
 # Data directory for state.json and local file uploads
 data_dir: "data"
 

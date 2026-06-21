@@ -7,6 +7,7 @@ import (
 	"travel-coordinates/go/internal/adapter/http/handler"
 	"travel-coordinates/go/internal/adapter/http/middleware"
 	authsvc "travel-coordinates/go/internal/service/auth"
+	geosvc "travel-coordinates/go/internal/service/geo"
 	place "travel-coordinates/go/internal/service/place"
 )
 
@@ -19,9 +20,10 @@ type Server struct {
 	dataDir     string
 }
 
-func New(placeService *place.Service, authService *authsvc.Service, dataDir string, webDir string, jwtSecret string) *Server {
+func New(placeService *place.Service, authService *authsvc.Service, geoService *geosvc.GeoService, dataDir string, webDir string, jwtSecret string) *Server {
 	h := handler.NewPlaceHandler(placeService)
 	ah := handler.NewAuthHandler(authService)
+	gh := handler.NewGeoHandler(geoService)
 	mux := http.NewServeMux()
 	server := &Server{
 		handler:     h,
@@ -34,6 +36,10 @@ func New(placeService *place.Service, authService *authsvc.Service, dataDir stri
 
 	// public
 	mux.HandleFunc("/healthz", h.Healthz)
+
+	// geo (public)
+	mux.HandleFunc("GET /api/geo/suggest", gh.Suggest)
+	mux.HandleFunc("GET /api/geo/reverse", gh.Reverse)
 
 	// auth (no JWT required)
 	mux.HandleFunc("POST /api/auth/send-code", ah.SendCode)
