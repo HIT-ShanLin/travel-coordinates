@@ -67,9 +67,10 @@ export function PlaceDrawer({
   const [editing, setEditing] = useState(false);
   const [cards, setCards] = useState<MemoryCardData[]>([]);
 
-  // Swipe state
+  // Swipe state — refs for instant read, state only for visual
   const offsetX = useRef(0);
   const startX = useRef(0);
+  const swipingRef = useRef(false);
   const [swipeX, setSwipeX] = useState(0);
   const [swiping, setSwiping] = useState(false);
 
@@ -87,12 +88,13 @@ export function PlaceDrawer({
     }
   }, [place]);
 
-  // Touch handlers on the entire panel
+  // Touch handlers — use refs for instant read, state only for visual offset
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (siblingCount < 2 || !onNavigate) return;
       startX.current = e.touches[0].clientX;
       offsetX.current = 0;
+      swipingRef.current = true;
       setSwiping(true);
     },
     [siblingCount, onNavigate],
@@ -100,26 +102,25 @@ export function PlaceDrawer({
 
   const onTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (!swiping) return;
+      if (!swipingRef.current) return;
       const dx = e.touches[0].clientX - startX.current;
       offsetX.current = dx;
-      // Clamp at edges with rubber band
       const atStart = currentIdx === 0 && dx > 0;
       const atEnd = currentIdx === siblingCount - 1 && dx < 0;
       setSwipeX(atStart || atEnd ? dx * 0.2 : dx);
     },
-    [swiping, currentIdx, siblingCount],
+    [currentIdx, siblingCount],
   );
 
   const onTouchEnd = useCallback(() => {
-    if (!swiping || !onNavigate) return;
+    if (!swipingRef.current || !onNavigate) return;
+    swipingRef.current = false;
     setSwiping(false);
     const dx = offsetX.current;
     if (Math.abs(dx) > 60) {
       const dir = dx < 0 ? 1 : -1;
       const newIdx = currentIdx + dir;
       if (newIdx >= 0 && newIdx < siblingCount) {
-        // Animate out, then navigate
         setSwipeX(dir > 0 ? -500 : 500);
         setTimeout(() => {
           onNavigate(siblings[newIdx].id);
@@ -128,9 +129,8 @@ export function PlaceDrawer({
         return;
       }
     }
-    // Snap back
     setSwipeX(0);
-  }, [swiping, currentIdx, siblingCount, siblings, onNavigate]);
+  }, [currentIdx, siblingCount, siblings, onNavigate]);
 
   if (!place) {
     return (
