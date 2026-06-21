@@ -729,8 +729,12 @@ h1 {
 .swipe-dot { width: 6px; height: 6px; border-radius: 3px; background: #cbd5e1; cursor: pointer; transition: all 0.2s; }
 .swipe-dot.active { background: #2563eb; width: 20px; }
 
-.card-stack-wrapper { overflow: hidden; position: relative; }
-.card-stack { position: relative; min-height: 300px; }
-.card-stack-item { position: absolute; top: 0; left: 0; right: 0; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-.card-stack-item:first-child { position: relative; }
-.card-content { padding: 0 0 12px 0; }
+.swipe-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.swipe-topbar { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; }
+.swipe-topbar-left h3 { margin: 0; font-size: 17px; }
+.swipe-topbar-sub { font-size: 13px; color: #64748b; }
+.swipe-topbar-right { display: flex; align-items: center; gap: 8px; }
+.swipe-counter { font-size: 13px; color: #94a3b8; }
+.swipe-card { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.swipe-bottom { padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.swipe-bottom .primary-btn { width: 100%; }
