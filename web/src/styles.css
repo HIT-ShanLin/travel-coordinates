@@ -723,3 +723,8 @@ h1 {
 @keyframes pin-pulse { 0%, 100% { box-shadow: 0 0 0 6px rgba(37,99,235,0.2); } 50% { box-shadow: 0 0 0 14px rgba(37,99,235,0); } }
 
 .chip-count { font-weight: 400; font-size: 0.85em; color: #64748b; }
+
+.city-nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 8px 0; background: #f8fafc; border-radius: 8px; margin-bottom: 8px; }
+.city-nav-btn { background: none; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 10px; font-size: 13px; color: #475569; cursor: pointer; }
+.city-nav-btn:disabled { opacity: 0.3; cursor: default; }
+.city-nav-info { font-size: 13px; color: #64748b; }

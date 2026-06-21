@@ -72,6 +72,14 @@ export default function App() {
     [places, selectedPlaceId],
   );
 
+  // Sibling places in the same city (for prev/next navigation)
+  const siblingIds = useMemo(() => {
+    if (!selectedPlace?.city) return [];
+    return places
+      .filter((p) => p.city === selectedPlace.city)
+      .map((p) => p.id);
+  }, [places, selectedPlace?.city]);
+
   function openMemories(id: string) {
     setSelectedPlaceId(id);
     setPanel("memories");
@@ -335,6 +343,8 @@ export default function App() {
                 onDeletePlace={handleDeleteSelectedPlace}
                 onClose={() => setPanel(null)}
                 onAppendMemory={handleAppendMemory}
+                siblingIds={siblingIds}
+                onNavigate={(id) => setSelectedPlaceId(id)}
               />
             </aside>
           </>

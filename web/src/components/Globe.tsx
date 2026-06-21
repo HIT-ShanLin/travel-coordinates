@@ -58,7 +58,7 @@ const PIN_SIZE_SELECTED = 48;
 /* ------------------------------------------------------------------ */
 
 function buildPinHTML(place: Place, isSelected: boolean): string {
-  const photoUrl = place.photos?.[0]?.url;
+  const photoUrl = place.photos?.[place.photos.length - 1]?.url;
   const size = isSelected ? PIN_SIZE_SELECTED : PIN_SIZE;
   const borderColor = isSelected ? "#4a90d9" : "#fff";
   const borderWidth = isSelected ? 3 : 2;

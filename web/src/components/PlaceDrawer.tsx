@@ -13,6 +13,8 @@ type Props = {
   onDeletePlace: () => Promise<void>;
   onClose: () => void;
   onAppendMemory?: () => void;
+  siblingIds?: string[];
+  onNavigate?: (placeId: string) => void;
 };
 
 function buildMemoryCards(place: Place): MemoryCardData[] {
@@ -61,6 +63,8 @@ export function PlaceDrawer({
   onDeletePlace,
   onClose,
   onAppendMemory,
+  siblingIds,
+  onNavigate,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [cards, setCards] = useState<MemoryCardData[]>([]);
@@ -125,6 +129,35 @@ export function PlaceDrawer({
         />
       ) : (
         <>
+          {/* City navigation */}
+          {siblingIds && siblingIds.length > 1 && onNavigate && (
+            <div className="city-nav">
+              <button
+                className="city-nav-btn"
+                disabled={siblingIds.indexOf(place.id) === 0}
+                onClick={() => {
+                  const idx = siblingIds.indexOf(place.id);
+                  if (idx > 0) onNavigate(siblingIds[idx - 1]);
+                }}
+              >
+                ‹ 上一个
+              </button>
+              <span className="city-nav-info">
+                {siblingIds.indexOf(place.id) + 1} / {siblingIds.length}
+              </span>
+              <button
+                className="city-nav-btn"
+                disabled={siblingIds.indexOf(place.id) === siblingIds.length - 1}
+                onClick={() => {
+                  const idx = siblingIds.indexOf(place.id);
+                  if (idx < siblingIds.length - 1) onNavigate(siblingIds[idx + 1]);
+                }}
+              >
+                下一个 ›
+              </button>
+            </div>
+          )}
+
           {/* Header */}
           <div className="drawer-header">
             <div>
