@@ -36,5 +36,5 @@ r2_account_id: ""
 r2_access_key: ""
 r2_secret_key: ""
 r2_bucket: ""
-r2_domain: ""   # optional custom domain for public URLs
-r2_endpoint: "" # optional custom S3 endpoint
+r2_domain: ""
+r2_endpoint: ""
