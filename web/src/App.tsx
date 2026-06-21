@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Globe } from "./components/Globe";
 import { PlaceDrawer } from "./components/PlaceDrawer";
-import { PlaceForm } from "./components/PlaceForm";
+import UnifiedPostEditor from "./components/UnifiedPostEditor";
+import type { LocationValue } from "./components/LocationPicker";
 import { AuthGuard } from "./components/AuthGuard";
 import {
   createPlace,
@@ -21,9 +22,13 @@ export default function App() {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [panel, setPanel] = useState<null | "add" | "memories">(null);
+  const [panel, setPanel] = useState<null | "memories">(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
+
+  // Unified editor state
+  const [editorMode, setEditorMode] = useState<"create" | "append" | null>(null);
+  const [defaultEditorLocation, setDefaultEditorLocation] = useState<LocationValue | undefined>();
 
   const refresh = useCallback(async () => {
     if (!isLoggedIn()) return;
@@ -69,13 +74,6 @@ export default function App() {
 
   function openMemories(id: string) {
     setSelectedPlaceId(id);
-    setPanel("memories");
-  }
-
-  async function handleCreatePlace(input: PlaceInput) {
-    const created = await createPlace(input);
-    setPlaces((c) => [created, ...c.filter((p) => p.id !== created.id)]);
-    setSelectedPlaceId(created.id);
     setPanel("memories");
   }
 
@@ -136,6 +134,43 @@ export default function App() {
     setPanel(null);
   }
 
+  // Map click → open editor with coordinates
+  function handleMapClick(pos: { lat: number; lng: number }) {
+    setDefaultEditorLocation({
+      name: `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`,
+      country: "",
+      city: "",
+      lat: pos.lat,
+      lng: pos.lng,
+    });
+    setEditorMode("create");
+  }
+
+  // FAB → open editor in create mode
+  function handleOpenCreate() {
+    setDefaultEditorLocation(undefined);
+    setEditorMode("create");
+  }
+
+  // PlaceDrawer append → open editor in append mode
+  function handleAppendMemory() {
+    if (!selectedPlace) return;
+    setDefaultEditorLocation({
+      name: selectedPlace.name,
+      country: selectedPlace.country,
+      city: selectedPlace.city,
+      lat: selectedPlace.latitude,
+      lng: selectedPlace.longitude,
+    });
+    setEditorMode("append");
+  }
+
+  // Editor success callback
+  function handleEditorSuccess() {
+    setEditorMode(null);
+    refresh();
+  }
+
   const isMobile =
     typeof window !== "undefined" && window.innerWidth < 768;
 
@@ -180,6 +215,7 @@ export default function App() {
             places={filteredPlaces}
             selectedPlaceId={selectedPlaceId}
             onSelectPlace={(id) => openMemories(id)}
+            onMapClick={handleMapClick}
           />
 
           {/* search bar */}
@@ -188,7 +224,7 @@ export default function App() {
             <input
               type="text"
               className="search-input"
-              placeholder="搜索地点、国家、城市..."
+              placeholder="搜索足迹、地点..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -220,8 +256,8 @@ export default function App() {
                     }),
                   );
                 },
-                () => alert("定位失败"),
-                { enableHighAccuracy: true, timeout: 10000 },
+                (err) => console.warn("定位失败:", err.message),
+                { enableHighAccuracy: true, timeout: 15000 },
               );
             }}
             aria-label="定位"
@@ -233,10 +269,10 @@ export default function App() {
           <button
             className="fab"
             type="button"
-            onClick={() => setPanel(panel === "add" ? null : "add")}
-            aria-label="新增地点"
+            onClick={handleOpenCreate}
+            aria-label="记录足迹"
           >
-            {panel === "add" ? "✕" : "+"}
+            ＋
           </button>
 
           {/* chip bar */}
@@ -261,7 +297,7 @@ export default function App() {
         </div>
 
         {/* slide panel */}
-        {panel && (
+        {panel === "memories" && (
           <>
             <div
               className="panel-overlay"
@@ -271,26 +307,29 @@ export default function App() {
               className={`slide-panel ${isMobile ? "sheet" : "drawer"}`}
             >
               {isMobile && <div className="sheet-handle" />}
-              {panel === "add" ? (
-                <PlaceForm
-                  onSubmit={handleCreatePlace}
-                  busy={loading}
-                  onClose={() => setPanel(null)}
-                />
-              ) : (
-                <PlaceDrawer
-                  place={selectedPlace}
-                  onUpdatePlace={handleUpdatePlace}
-                  onUploadPhoto={handleUploadPhoto}
-                  onDeletePhoto={handleDeletePhoto}
-                  onCreatePost={handleCreatePost}
-                  onDeletePost={handleDeletePost}
-                  onDeletePlace={handleDeleteSelectedPlace}
-                  onClose={() => setPanel(null)}
-                />
-              )}
+              <PlaceDrawer
+                place={selectedPlace}
+                onUpdatePlace={handleUpdatePlace}
+                onUploadPhoto={handleUploadPhoto}
+                onDeletePhoto={handleDeletePhoto}
+                onCreatePost={handleCreatePost}
+                onDeletePost={handleDeletePost}
+                onDeletePlace={handleDeleteSelectedPlace}
+                onClose={() => setPanel(null)}
+                onAppendMemory={handleAppendMemory}
+              />
             </aside>
           </>
+        )}
+
+        {/* Unified editor (modal, replaces PlaceForm) */}
+        {editorMode && (
+          <UnifiedPostEditor
+            mode={editorMode}
+            defaultLocation={defaultEditorLocation}
+            onClose={() => setEditorMode(null)}
+            onSuccess={handleEditorSuccess}
+          />
         )}
       </main>
     </AuthGuard>
