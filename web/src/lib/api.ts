@@ -86,21 +86,15 @@ export async function deletePhoto(placeId: string, photoId: string): Promise<voi
 
 export async function createPost(
   placeId: string,
-  input: { title: string; content: string; file?: File | null },
+  input: { title: string; content: string; photo_id?: string },
 ): Promise<Place> {
-  if (input.file) {
-    const formData = new FormData();
-    formData.append("title", input.title);
-    formData.append("content", input.content);
-    formData.append("file", input.file);
-    return request<Place>(`/api/places/${placeId}/posts`, {
-      method: "POST",
-      body: formData,
-    });
-  }
   return request<Place>(`/api/places/${placeId}/posts`, {
     method: "POST",
-    body: JSON.stringify({ title: input.title, content: input.content }),
+    body: JSON.stringify({
+      title: input.title,
+      content: input.content,
+      photo_id: input.photo_id ?? "",
+    }),
   });
 }
 

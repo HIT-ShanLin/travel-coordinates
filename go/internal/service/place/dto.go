@@ -22,12 +22,5 @@ type PhotoInput struct {
 type PostInput struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
-}
-
-type PostAttachmentInput struct {
-	Title       string
-	Content     string
-	Filename    string
-	ContentType string
-	File        io.Reader
+	PhotoID string `json:"photo_id,omitempty"`
 }

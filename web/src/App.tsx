@@ -104,7 +104,7 @@ export default function App() {
   async function handleCreatePost(input: {
     title: string;
     content: string;
-    file?: File | null;
+    photo_id?: string;
   }) {
     if (!selectedPlace) return;
     const updated = await createPost(selectedPlace.id, input);

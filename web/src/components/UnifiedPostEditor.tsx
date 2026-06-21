@@ -81,23 +81,27 @@ export default function UnifiedPostEditor({
       });
       createdPlaceId = place.id;
 
+      // Upload photos to R2 → DB, collect photo IDs
+      let postPhotoId = '';
       if (photos.length > 0) {
         setStep('uploading_photos');
         setProgress({ current: 0, total: photos.length });
         for (let i = 0; i < photos.length; i++) {
-          await uploadPhoto(place.id, photos[i].file);
+          const updated = await uploadPhoto(place.id, photos[i].file);
+          const allPhotos = updated.photos ?? [];
+          if (allPhotos.length > 0) {
+            const lastId = allPhotos[allPhotos.length - 1].id;
+            if (i === 0) postPhotoId = lastId; // first photo = cover
+          }
           setProgress({ current: i + 1, total: photos.length });
         }
       }
 
+      // Create post referencing the cover photo
       if (content.trim() || photos.length > 0) {
         setStep('creating_post');
         const title = location.name || `${location.city || '旅行记忆'}`;
-        if (photos.length > 0) {
-          await createPost(place.id, { title, content, file: photos[0].file });
-        } else {
-          await createPost(place.id, { title, content });
-        }
+        await createPost(place.id, { title, content, photo_id: postPhotoId });
       }
 
       onSuccess();

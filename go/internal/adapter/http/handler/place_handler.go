@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"travel-coordinates/go/internal/adapter/http/middleware"
 	place "travel-coordinates/go/internal/service/place"
@@ -141,32 +140,6 @@ func (h *PlaceHandler) DeletePhoto(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlaceHandler) AddPost(w http.ResponseWriter, r *http.Request) {
 	placeID := r.PathValue("id")
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		if err := r.ParseMultipartForm(16 << 20); err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		file, header, err := r.FormFile("file")
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		defer file.Close()
-		updated, err := h.service.AddPostAttachment(r.Context(), middleware.GetUserID(r.Context()), placeID, place.PostAttachmentInput{
-			Title:       strings.TrimSpace(r.FormValue("title")),
-			Content:     strings.TrimSpace(r.FormValue("content")),
-			Filename:    header.Filename,
-			ContentType: header.Header.Get("Content-Type"),
-			File:        file,
-		})
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, updated)
-		return
-	}
 	var req place.PostInput
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
