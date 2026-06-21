@@ -14,7 +14,7 @@ import {
   updatePlace,
   uploadPhoto,
 } from "./lib/api";
-import { isLoggedIn, clearAuth } from "./lib/auth";
+import { isLoggedIn, clearAuth, getUser } from "./lib/auth";
 import type { Place, PlaceInput } from "./lib/types";
 
 export default function App() {
@@ -343,6 +343,7 @@ export default function App() {
                 onAppendMemory={handleAppendMemory}
                 siblingPlaces={siblingPlaces}
                 onNavigate={(id) => setSelectedPlaceId(id)}
+                currentUserId={getUser()?.id}
               />
             </aside>
           </>
