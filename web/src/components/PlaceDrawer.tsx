@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import type { Place, PlaceInput } from '../lib/types';
 import MemoryCard, { type MemoryCardData } from './MemoryCard';
 import PlaceEditor from './PlaceEditor';
@@ -13,7 +13,7 @@ type Props = {
   onDeletePlace: () => Promise<void>;
   onClose: () => void;
   onAppendMemory?: () => void;
-  siblingIds?: string[];
+  siblingPlaces?: Place[];
   onNavigate?: (placeId: string) => void;
 };
 
@@ -22,7 +22,6 @@ function buildMemoryCards(place: Place): MemoryCardData[] {
   const photoMap = new Map(place.photos.map((p) => [p.id, p]));
   const linkedPhotoIds = new Set<string>();
 
-  // Posts with or without photos
   for (const post of place.posts) {
     const photo = post.photo_id ? photoMap.get(post.photo_id) : undefined;
     if (photo) linkedPhotoIds.add(photo.id);
@@ -37,7 +36,6 @@ function buildMemoryCards(place: Place): MemoryCardData[] {
     });
   }
 
-  // Orphan photos (not linked to any post)
   for (const photo of place.photos) {
     if (!linkedPhotoIds.has(photo.id)) {
       cards.push({
@@ -55,6 +53,8 @@ function buildMemoryCards(place: Place): MemoryCardData[] {
   return cards;
 }
 
+const SWIPE_THRESHOLD = 60; // px
+
 export function PlaceDrawer({
   place,
   onUpdatePlace,
@@ -63,21 +63,63 @@ export function PlaceDrawer({
   onDeletePlace,
   onClose,
   onAppendMemory,
-  siblingIds,
+  siblingPlaces,
   onNavigate,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [cards, setCards] = useState<MemoryCardData[]>([]);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
+  // Swipe state
+  const [swiping, setSwiping] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const touchStartX = useRef(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const siblingCount = siblingPlaces?.length ?? 0;
+  const currentIndex = siblingPlaces?.findIndex((p) => p.id === place?.id) ?? 0;
+  const showSwipe = siblingCount > 1 && onNavigate;
+
   useEffect(() => {
     if (place) {
       setCards(buildMemoryCards(place));
       setEditing(false);
+      setSwipeOffset(0);
     } else {
       setCards([]);
     }
   }, [place]);
+
+  // Touch handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!showSwipe) return;
+    touchStartX.current = e.touches[0].clientX;
+    setSwiping(true);
+  }, [showSwipe]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!swiping || !showSwipe) return;
+    const delta = e.touches[0].clientX - touchStartX.current;
+    // Clamp: don't allow swiping past boundaries
+    if ((currentIndex === 0 && delta > 0) || (currentIndex === siblingCount - 1 && delta < 0)) {
+      setSwipeOffset(delta * 0.3); // rubber band
+    } else {
+      setSwipeOffset(delta);
+    }
+  }, [swiping, showSwipe, currentIndex, siblingCount]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!showSwipe) return;
+    setSwiping(false);
+    if (Math.abs(swipeOffset) > SWIPE_THRESHOLD) {
+      if (swipeOffset < 0 && currentIndex < siblingCount - 1) {
+        onNavigate!(siblingPlaces![currentIndex + 1].id);
+      } else if (swipeOffset > 0 && currentIndex > 0) {
+        onNavigate!(siblingPlaces![currentIndex - 1].id);
+      }
+    }
+    setSwipeOffset(0);
+  }, [showSwipe, swipeOffset, currentIndex, siblingCount, siblingPlaces, onNavigate]);
 
   if (!place) {
     return (
@@ -104,11 +146,16 @@ export function PlaceDrawer({
     }
   };
 
-  // Hero photo: first photo from any card, or null
   const heroUrl = cards.find((c) => c.photoUrls.length > 0)?.photoUrls[activePhotoIndex] ?? null;
 
   return (
-    <div className="panel-content">
+    <div
+      className="panel-content"
+      ref={panelRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {editing ? (
         <PlaceEditor
           initial={{
@@ -128,33 +175,23 @@ export function PlaceDrawer({
           onCancel={() => setEditing(false)}
         />
       ) : (
-        <>
-          {/* City navigation */}
-          {siblingIds && siblingIds.length > 1 && onNavigate && (
-            <div className="city-nav">
-              <button
-                className="city-nav-btn"
-                disabled={siblingIds.indexOf(place.id) === 0}
-                onClick={() => {
-                  const idx = siblingIds.indexOf(place.id);
-                  if (idx > 0) onNavigate(siblingIds[idx - 1]);
-                }}
-              >
-                ‹ 上一个
-              </button>
-              <span className="city-nav-info">
-                {siblingIds.indexOf(place.id) + 1} / {siblingIds.length}
-              </span>
-              <button
-                className="city-nav-btn"
-                disabled={siblingIds.indexOf(place.id) === siblingIds.length - 1}
-                onClick={() => {
-                  const idx = siblingIds.indexOf(place.id);
-                  if (idx < siblingIds.length - 1) onNavigate(siblingIds[idx + 1]);
-                }}
-              >
-                下一个 ›
-              </button>
+        <div
+          className="swipe-container"
+          style={{
+            transform: `translateX(${swipeOffset}px)`,
+            transition: swiping ? 'none' : 'transform 0.3s ease-out',
+          }}
+        >
+          {/* Dot indicators */}
+          {showSwipe && (
+            <div className="swipe-dots">
+              {siblingPlaces!.map((p, i) => (
+                <span
+                  key={p.id}
+                  className={`swipe-dot ${i === currentIndex ? 'active' : ''}`}
+                  onClick={() => onNavigate!(p.id)}
+                />
+              ))}
             </div>
           )}
 
@@ -236,9 +273,7 @@ export function PlaceDrawer({
                 <span>{place.place_type || '未分类'}</span>
               </div>
             </div>
-            {place.note && (
-              <p className="info-note">{place.note}</p>
-            )}
+            {place.note && <p className="info-note">{place.note}</p>}
           </div>
 
           {/* Memory cards */}
@@ -278,7 +313,7 @@ export function PlaceDrawer({
               删除此地点
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

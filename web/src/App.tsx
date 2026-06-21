@@ -72,12 +72,10 @@ export default function App() {
     [places, selectedPlaceId],
   );
 
-  // Sibling places in the same city (for prev/next navigation)
-  const siblingIds = useMemo(() => {
+  // Sibling places in the same city (for swipe navigation)
+  const siblingPlaces = useMemo(() => {
     if (!selectedPlace?.city) return [];
-    return places
-      .filter((p) => p.city === selectedPlace.city)
-      .map((p) => p.id);
+    return places.filter((p) => p.city === selectedPlace.city);
   }, [places, selectedPlace?.city]);
 
   function openMemories(id: string) {
@@ -343,7 +341,7 @@ export default function App() {
                 onDeletePlace={handleDeleteSelectedPlace}
                 onClose={() => setPanel(null)}
                 onAppendMemory={handleAppendMemory}
-                siblingIds={siblingIds}
+                siblingPlaces={siblingPlaces}
                 onNavigate={(id) => setSelectedPlaceId(id)}
               />
             </aside>
