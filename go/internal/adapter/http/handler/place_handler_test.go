@@ -26,7 +26,7 @@ func newTestServer(t *testing.T) *httpadapter.Server {
 	if err != nil {
 		t.Fatalf("local.New() error = %v", err)
 	}
-	return httpadapter.New(service.New(repository, mediaStorage), root, "")
+	return httpadapter.New(service.New(repository, mediaStorage), nil, nil, root, "", "")
 }
 
 func TestPlaceCreateListAndDelete(t *testing.T) {

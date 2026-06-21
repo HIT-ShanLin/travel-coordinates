@@ -97,7 +97,7 @@ func TestAddPhoto(t *testing.T) {
 	place, _ := NewPlace("p1", "u1", PlaceDetails{Name: "Test"}, now)
 	later := now.Add(time.Hour)
 
-	place.AddPhoto(Photo{ID: "photo1", Filename: "img.jpg", ContentType: "image/jpeg", URL: "/p/img.jpg"}, later)
+	place.AddPhoto(Photo{ID: "photo1", URL: "/p/img.jpg"}, later)
 
 	if len(place.Photos) != 1 {
 		t.Fatalf("len(place.Photos) = %d, want 1", len(place.Photos))
@@ -112,8 +112,8 @@ func TestAddPhoto(t *testing.T) {
 
 func TestRemovePhoto(t *testing.T) {
 	place, _ := NewPlace("p1", "u1", PlaceDetails{Name: "Test"}, now)
-	place.AddPhoto(Photo{ID: "p1", Filename: "a.jpg"}, now)
-	place.AddPhoto(Photo{ID: "p2", Filename: "b.jpg"}, now)
+	place.AddPhoto(Photo{ID: "p1", URL: "a.jpg"}, now)
+	place.AddPhoto(Photo{ID: "p2", URL: "b.jpg"}, now)
 
 	removed, err := place.RemovePhoto("p1", now.Add(time.Hour))
 	if err != nil {

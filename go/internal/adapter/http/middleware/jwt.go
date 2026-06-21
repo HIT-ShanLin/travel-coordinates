@@ -15,6 +15,12 @@ const UserIDKey contextKey = "user_id"
 func AuthRequired(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// When no secret is configured, skip authentication (dev/test mode)
+			if secret == "" {
+				ctx := context.WithValue(r.Context(), UserIDKey, "0001")
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 			header := r.Header.Get("Authorization")
 			if header == "" || !strings.HasPrefix(header, "Bearer ") {
 				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
