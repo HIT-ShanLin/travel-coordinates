@@ -10,6 +10,7 @@ type GlobeProps = {
   places: Place[];
   selectedPlaceId: string | null;
   onSelectPlace: (placeId: string) => void;
+  onMapClick?: (pos: { lat: number; lng: number }) => void;
 };
 
 type DrillLevel = "country" | "province" | "city" | "district";
@@ -57,7 +58,7 @@ const PIN_SIZE_SELECTED = 48;
 /* ------------------------------------------------------------------ */
 
 function buildPinHTML(place: Place, isSelected: boolean): string {
-  const photoUrl = place.photos?.[0]?.url;
+  const photoUrl = place.photos?.[place.photos.length - 1]?.url;
   const size = isSelected ? PIN_SIZE_SELECTED : PIN_SIZE;
   const borderColor = isSelected ? "#4a90d9" : "#fff";
   const borderWidth = isSelected ? 3 : 2;
@@ -110,9 +111,11 @@ export function Globe({
   places,
   selectedPlaceId,
   onSelectPlace,
+  onMapClick,
 }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const tempMarkerRef = useRef<any>(null);
   const AMapRef = useRef<any>(null);
   const polygonsRef = useRef<any[]>([]);
   const markersRef = useRef<any[]>([]);
@@ -511,6 +514,24 @@ export function Globe({
         // load initial China province boundaries
         drillDown("中国", "100000", "country");
         setReady(true);
+
+        // Map click → create temporary pin + notify parent
+        map.on('click', (e: any) => {
+          const { lng, lat } = e.lnglat;
+          if (tempMarkerRef.current) {
+            map.remove(tempMarkerRef.current);
+          }
+          const marker = new AMap.Marker({
+            position: [lng, lat],
+            anchor: 'center',
+            content: '<div class="temp-pin"></div>',
+          });
+          map.add(marker);
+          tempMarkerRef.current = marker;
+          if (onMapClick) {
+            onMapClick({ lat, lng });
+          }
+        });
       })
       .catch((e: any) => console.error("Amap load failed", e));
 

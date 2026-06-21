@@ -12,7 +12,7 @@ export type Post = {
   place_id: string;
   title: string;
   content: string;
-  photo_id: string;
+  photo_id: string | null;
   created_at: string;
 };
 
@@ -43,3 +43,49 @@ export type PlaceInput = {
   country: string;
   city: string;
 };
+
+// --- geo ---
+
+export interface GeoItem {
+  name: string;
+  country: string;
+  city: string;
+  lat: number;
+  lng: number;
+}
+
+export interface ReverseGeoResult {
+  country: string;
+  city: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+// --- post draft (unified form state) ---
+
+export interface PhotoDraft {
+  id: string; // temporary client-side id
+  file: File;
+  cropData?: CropData;
+  isCover: boolean;
+}
+
+export interface CropData {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// --- memory card (for PlaceDrawer display) ---
+
+export interface MemoryCardData {
+  id: string;
+  type: 'post_with_photo' | 'post_only' | 'photo_only';
+  photoUrls: string[];
+  title: string;
+  content: string;
+  date: string;
+  placeName: string;
+}

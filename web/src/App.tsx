@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Globe } from "./components/Globe";
 import { PlaceDrawer } from "./components/PlaceDrawer";
-import { PlaceForm } from "./components/PlaceForm";
+import UnifiedPostEditor from "./components/UnifiedPostEditor";
+import type { LocationValue } from "./components/LocationPicker";
 import { AuthGuard } from "./components/AuthGuard";
 import {
   createPlace,
@@ -13,7 +14,7 @@ import {
   updatePlace,
   uploadPhoto,
 } from "./lib/api";
-import { isLoggedIn, clearAuth } from "./lib/auth";
+import { isLoggedIn, clearAuth, getUser } from "./lib/auth";
 import type { Place, PlaceInput } from "./lib/types";
 
 export default function App() {
@@ -21,9 +22,13 @@ export default function App() {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [panel, setPanel] = useState<null | "add" | "memories">(null);
+  const [panel, setPanel] = useState<null | "memories">(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
+
+  // Unified editor state
+  const [editorMode, setEditorMode] = useState<"create" | "append" | null>(null);
+  const [defaultEditorLocation, setDefaultEditorLocation] = useState<LocationValue | undefined>();
 
   const refresh = useCallback(async () => {
     if (!isLoggedIn()) return;
@@ -67,15 +72,14 @@ export default function App() {
     [places, selectedPlaceId],
   );
 
+  // Sibling places in the same city (for swipe navigation)
+  const siblingPlaces = useMemo(() => {
+    if (!selectedPlace?.city) return [];
+    return places.filter((p) => p.city === selectedPlace.city);
+  }, [places, selectedPlace?.city]);
+
   function openMemories(id: string) {
     setSelectedPlaceId(id);
-    setPanel("memories");
-  }
-
-  async function handleCreatePlace(input: PlaceInput) {
-    const created = await createPlace(input);
-    setPlaces((c) => [created, ...c.filter((p) => p.id !== created.id)]);
-    setSelectedPlaceId(created.id);
     setPanel("memories");
   }
 
@@ -106,7 +110,7 @@ export default function App() {
   async function handleCreatePost(input: {
     title: string;
     content: string;
-    file?: File | null;
+    photo_id?: string;
   }) {
     if (!selectedPlace) return;
     const updated = await createPost(selectedPlace.id, input);
@@ -134,6 +138,43 @@ export default function App() {
       return r;
     });
     setPanel(null);
+  }
+
+  // Map click → open editor with coordinates
+  function handleMapClick(pos: { lat: number; lng: number }) {
+    setDefaultEditorLocation({
+      name: `${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`,
+      country: "",
+      city: "",
+      lat: pos.lat,
+      lng: pos.lng,
+    });
+    setEditorMode("create");
+  }
+
+  // FAB → open editor in create mode
+  function handleOpenCreate() {
+    setDefaultEditorLocation(undefined);
+    setEditorMode("create");
+  }
+
+  // PlaceDrawer append → open editor in append mode
+  function handleAppendMemory() {
+    if (!selectedPlace) return;
+    setDefaultEditorLocation({
+      name: selectedPlace.name,
+      country: selectedPlace.country,
+      city: selectedPlace.city,
+      lat: selectedPlace.latitude,
+      lng: selectedPlace.longitude,
+    });
+    setEditorMode("append");
+  }
+
+  // Editor success callback
+  function handleEditorSuccess() {
+    setEditorMode(null);
+    refresh();
   }
 
   const isMobile =
@@ -180,6 +221,7 @@ export default function App() {
             places={filteredPlaces}
             selectedPlaceId={selectedPlaceId}
             onSelectPlace={(id) => openMemories(id)}
+            onMapClick={handleMapClick}
           />
 
           {/* search bar */}
@@ -188,7 +230,7 @@ export default function App() {
             <input
               type="text"
               className="search-input"
-              placeholder="搜索地点、国家、城市..."
+              placeholder="搜索足迹、地点..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -220,8 +262,8 @@ export default function App() {
                     }),
                   );
                 },
-                () => alert("定位失败"),
-                { enableHighAccuracy: true, timeout: 10000 },
+                (err) => console.warn("定位失败:", err.message),
+                { enableHighAccuracy: true, timeout: 15000 },
               );
             }}
             aria-label="定位"
@@ -233,35 +275,53 @@ export default function App() {
           <button
             className="fab"
             type="button"
-            onClick={() => setPanel(panel === "add" ? null : "add")}
-            aria-label="新增地点"
+            onClick={handleOpenCreate}
+            aria-label="记录足迹"
           >
-            {panel === "add" ? "✕" : "+"}
+            ＋
           </button>
 
-          {/* chip bar */}
+          {/* chip bar — grouped by city */}
           {filteredPlaces.length > 0 && (
             <div className="chip-bar">
-              {filteredPlaces.map((place) => (
-                <button
-                  key={place.id}
-                  className={`place-chip ${place.id === selectedPlaceId ? "active" : ""}`}
-                  type="button"
-                  onClick={() => openMemories(place.id)}
-                >
-                  <strong>{place.name}</strong>
-                  <span>
-                    {place.country || "..."}
-                    {place.city ? ` · ${place.city}` : ""}
-                  </span>
-                </button>
-              ))}
+              {(() => {
+                // Group places by city (fallback: by name)
+                const groups = new Map<string, { city: string; country: string; firstId: string; count: number }>();
+                for (const p of filteredPlaces) {
+                  const key = p.city || p.name;
+                  const existing = groups.get(key);
+                  if (existing) {
+                    existing.count++;
+                  } else {
+                    groups.set(key, {
+                      city: p.city || p.name,
+                      country: p.country,
+                      firstId: p.id,
+                      count: 1,
+                    });
+                  }
+                }
+                return Array.from(groups.values()).map((g) => (
+                  <button
+                    key={g.firstId}
+                    className={`place-chip ${filteredPlaces.some((p) => p.id === selectedPlaceId && (p.city || p.name) === g.city) ? "active" : ""}`}
+                    type="button"
+                    onClick={() => openMemories(g.firstId)}
+                  >
+                    <strong>
+                      {g.city}
+                      {g.count > 1 && <span className="chip-count"> ({g.count})</span>}
+                    </strong>
+                    <span>{g.country || "..."}</span>
+                  </button>
+                ));
+              })()}
             </div>
           )}
         </div>
 
         {/* slide panel */}
-        {panel && (
+        {panel === "memories" && (
           <>
             <div
               className="panel-overlay"
@@ -271,26 +331,32 @@ export default function App() {
               className={`slide-panel ${isMobile ? "sheet" : "drawer"}`}
             >
               {isMobile && <div className="sheet-handle" />}
-              {panel === "add" ? (
-                <PlaceForm
-                  onSubmit={handleCreatePlace}
-                  busy={loading}
-                  onClose={() => setPanel(null)}
-                />
-              ) : (
-                <PlaceDrawer
-                  place={selectedPlace}
-                  onUpdatePlace={handleUpdatePlace}
-                  onUploadPhoto={handleUploadPhoto}
-                  onDeletePhoto={handleDeletePhoto}
-                  onCreatePost={handleCreatePost}
-                  onDeletePost={handleDeletePost}
-                  onDeletePlace={handleDeleteSelectedPlace}
-                  onClose={() => setPanel(null)}
-                />
-              )}
+              <PlaceDrawer
+                place={selectedPlace}
+                onUpdatePlace={handleUpdatePlace}
+                onUploadPhoto={handleUploadPhoto}
+                onDeletePhoto={handleDeletePhoto}
+                onCreatePost={handleCreatePost}
+                onDeletePost={handleDeletePost}
+                onDeletePlace={handleDeleteSelectedPlace}
+                onClose={() => setPanel(null)}
+                onAppendMemory={handleAppendMemory}
+                siblingPlaces={siblingPlaces}
+                onNavigate={(id) => setSelectedPlaceId(id)}
+                currentUserId={getUser()?.id}
+              />
             </aside>
           </>
+        )}
+
+        {/* Unified editor (modal, replaces PlaceForm) */}
+        {editorMode && (
+          <UnifiedPostEditor
+            mode={editorMode}
+            defaultLocation={defaultEditorLocation}
+            onClose={() => setEditorMode(null)}
+            onSuccess={handleEditorSuccess}
+          />
         )}
       </main>
     </AuthGuard>

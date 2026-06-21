@@ -38,18 +38,3 @@ export function clearAuth(): void {
 export function isLoggedIn(): boolean {
   return !!getToken();
 }
-
-// Auto-inject Authorization header via fetch wrapper
-const originalFetch = window.fetch;
-
-window.fetch = function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const token = getToken();
-  if (token) {
-    init = init ?? {};
-    init.headers = {
-      ...(init.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-    };
-  }
-  return originalFetch(input, init);
-};

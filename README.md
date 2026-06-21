@@ -16,10 +16,12 @@
 | 前端框架 | React 19 + TypeScript |
 | 构建工具 | Vite 8 |
 | 地图引擎 | 高德地图 JS API 2.0 |
-| 后端 | Go 1.26（标准库 `net/http`） |
-| 存储（数据） | JSON 文件持久化 |
+| 后端 | Go 1.26（DDD 分层，`net/http`） |
+| 数据库 | MySQL 8.4 |
+| 缓存 | Redis 7 |
 | 存储（图片） | 本地文件系统 / Cloudflare R2（S3 兼容） |
 | 地图数据 | 高德 DistrictSearch + 阿里云 DataV GeoJSON |
+| 隧道 | Cloudflare Tunnel（cloudflared） |
 
 ---
 
@@ -32,7 +34,7 @@
 - ✍️ **旅行帖子** — 文字 + 可选图片
 - 📱 **响应式布局** — 桌面端抽屉面板，移动端底部弹窗
 - 📍 **浏览器定位** — 一键获取当前位置填写坐标
-- 🔑 **无登录** — 单用户模式（userID = 0001）
+- 🔑 **手机验证码登录** — 阿里云短信服务
 
 ---
 
@@ -40,29 +42,34 @@
 
 ```
 travel-coordinates/
-├── api/                          # Go 后端
+├── api/                          # API 契约（OpenAPI + Proto）
+├── go/                           # Go 后端（DDD 风格单体）
 │   ├── cmd/server/main.go        # 入口
 │   ├── internal/
-│   │   ├── config.go             # 配置中心（环境变量 → Config 结构体）
-│   │   ├── http/server.go        # HTTP 路由 + 处理器
-│   │   └── store/
-│   │       ├── store.go          # CRUD + JSON 文件持久化
-│   │       ├── models.go         # 数据模型
-│   │       └── r2.go             # Cloudflare R2 客户端（S3 协议）
-│   └── data/                     # 运行时数据（gitignored）
+│   │   ├── bootstrap/            # 启动引导（配置加载 + 依赖组装）
+│   │   ├── domain/place/         # 领域实体 + 规则
+│   │   ├── service/place/        # 用例编排
+│   │   ├── service/auth/         # 认证服务（短信验证码 + JWT）
+│   │   ├── repo/place/           # 持久化（MySQL / 文件系统）
+│   │   └── adapter/
+│   │       ├── http/             # HTTP 路由、handler、中间件、DTO
+│   │       ├── grpc/             # gRPC（预留）
+│   │       ├── sms/              # 阿里云短信
+│   │       └── storage/          # 图片存储（本地 / R2）
+│   ├── pkg/                      # 公共工具（JWT、日志）
+│   ├── configs/config.yaml       # 配置文件
+│   └── .env                      # 环境变量（gitignored）
 ├── web/                          # React 前端
 │   ├── src/
-│   │   ├── App.tsx               # 根组件（状态、布局、API 调用）
-│   │   ├── components/
-│   │   │   ├── Globe.tsx         # 高德地图 + 标记 + 下钻
-│   │   │   ├── PlaceForm.tsx     # 新增地点表单
-│   │   │   └── PlaceDrawer.tsx   # 地点详情（照片/帖子/编辑）
-│   │   ├── lib/
-│   │   │   ├── api.ts            # HTTP 请求封装
-│   │   │   └── types.ts          # TypeScript 类型定义
-│   │   └── styles.css            # 全局样式
+│   │   ├── App.tsx
+│   │   ├── components/           # 地图、表单、抽屉等组件
+│   │   ├── lib/                  # API 调用 + 类型定义
+│   │   └── styles.css
 │   ├── index.html
 │   └── vite.config.ts
+├── deploy/                       # 部署配置
+│   ├── docker-compose.yml        # MySQL + Redis
+│   └── cloudflared/              # Cloudflare Tunnel 配置
 └── docs/                         # 设计文档
 ```
 
@@ -74,65 +81,133 @@ travel-coordinates/
 
 - Go 1.22+
 - Node.js 20+
+- Docker + Colima（或 Docker Desktop）
 - 高德地图 API Key（[免费申请](https://lbs.amap.com/api/javascript-api/guide/abc/prepare)）
+- Cloudflare Tunnel（如需公网访问，[创建 Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)）
 
-### 1. 配置前端
+### 1. 启动基础设施（MySQL + Redis）
 
 ```bash
+# 确保 Docker 在运行（Colima 用户）
+colima start
+
+# 启动 MySQL 和 Redis
+cd deploy
+docker compose up -d
+```
+
+等待 MySQL 进入 healthy 状态（`docker compose ps` 查看）。
+
+### 2. 配置环境变量
+
+```bash
+# 后端（go/.env 已 gitignored，首次需要从模板复制）
+cd go
+cp .env.example .env
+```
+
+编辑 `go/.env`，填写必填项（MySQL DSN / Redis / SMS 等）。
+
+```bash
+# 前端
 cd web
 cp .env.example .env
 ```
 
-编辑 `web/.env`：
+编辑 `web/.env`，填入高德地图 Key：
 
 ```env
 VITE_AMAP_KEY=你的高德Key
 VITE_AMAP_SECRET=你的高德安全密钥
 ```
 
-### 2. 配置后端
+### 3. 构建前端
 
 ```bash
-cd api
-cp .env.example .env
+cd web
+npm install
+npm run build
 ```
 
-编辑 `api/.env`（全部可选，不配使用默认值）：
+产物输出到 `web/dist/`，Go 后端会自动检测并托管。
 
-```env
-PORT=8080
-TRAVEL_COORDINATES_DATA_DIR=data
+### 4. 启动后端
+
+```bash
+cd go
+go run ./cmd/server
 ```
 
-### 3. 启动开发
+服务监听在 `http://localhost:8080`，同时提供 API 和前端静态文件。
+
+### 5. （可选）启动隧道
+
+```bash
+cd deploy/cloudflared
+sh run.sh start
+```
+
+公网地址：**https://travel.sltechblog.site**
+
+---
+
+## 开发模式
+
+如果需要前端热更新（HMR），分开启动：
 
 ```bash
 # 终端 1：后端
-cd api && go run ./cmd/server
+cd go && go run ./cmd/server
 
-# 终端 2：前端
-cd web && npm install && npm run dev
+# 终端 2：前端开发服务器
+cd web && npm run dev
 ```
 
-打开 http://localhost:5173
-
-> **说明**：Vite 开发服务器自动将 `/api` 请求代理到 `localhost:8080`，无需处理跨域。
+打开 http://localhost:5173 — Vite 自动将 `/api` 请求代理到 `localhost:8080`。
 
 ---
 
 ## 生产部署
 
 ```bash
+# 1. 构建前端
 cd web && npm run build
-cd ../api && go build -o server ./cmd/server
+
+# 2. 编译后端
+cd go && go build -o server ./cmd/server
+
+# 3. 运行
 ./server
 ```
 
-Go 服务会自动检测 `web/dist/` 并托管静态前端文件，访问 http://localhost:8080 即可。
+Go 服务自动检测 `web/dist/` 并托管静态前端，访问 http://localhost:8080 即可。
 
 ---
 
 ## 配置参考
+
+### 后端（`go/.env`）
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `MYSQL_DSN` | 必填 | MySQL 连接串，格式 `user:pass@tcp(host:port)/db?parseTime=true&charset=utf8mb4` |
+| `REDIS_ADDR` | `127.0.0.1:6379` | Redis 地址 |
+| `JWT_SECRET` | 必填 | JWT 签名密钥（随机字符串） |
+| `SMS_ACCESS_KEY_ID` | 必填 | 阿里云短信 AccessKey |
+| `SMS_ACCESS_KEY_SECRET` | 必填 | 阿里云短信 Secret |
+| `SMS_SIGN_NAME` | `云渚科技验证服务` | 短信签名 |
+| `SMS_TEMPLATE_CODE` | `100001` | 短信模板代码 |
+| `PORT` | `8080` | 服务端口 |
+| `TRAVEL_COORDINATES_DATA_DIR` | `data` | 本地数据目录 |
+| `TRAVEL_COORDINATES_WEB_DIR` | 自动查找 | 前端构建目录 |
+| `R2_ACCOUNT_ID` | | Cloudflare R2 账户 ID |
+| `R2_ACCESS_KEY` | | R2 API Token 公钥 |
+| `R2_SECRET_KEY` | | R2 API Token 私钥 |
+| `R2_BUCKET` | | R2 存储桶名称 |
+| `R2_DOMAIN` | | R2 自定义域名（可选） |
+| `R2_ENDPOINT` | 自动 | 自定义 S3 端点（可选） |
+
+> 不配置 R2 相关变量时，图片自动存储到本地 `go/data/uploads/`。
 
 ### 前端（`web/.env`）
 
@@ -142,27 +217,18 @@ Go 服务会自动检测 `web/dist/` 并托管静态前端文件，访问 http:/
 | `VITE_AMAP_SECRET` | ✅ | 高德安全密钥 |
 | `VITE_API_URL` | | 后端地址，默认为空（同源代理） |
 
-### 后端（`api/.env`）
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | `8080` | 服务端口 |
-| `TRAVEL_COORDINATES_DATA_DIR` | `data` | 数据目录 |
-| `TRAVEL_COORDINATES_WEB_DIR` | 自动查找 | 前端构建目录 |
-| `R2_ACCOUNT_ID` | | Cloudflare R2 账户 ID |
-| `R2_BUCKET` | | R2 存储桶名称 |
-| `R2_ACCESS_KEY` | | R2 API Token 公钥 |
-| `R2_SECRET_KEY` | | R2 API Token 私钥 |
-| `R2_DOMAIN` | | R2 自定义域名（可选） |
-| `R2_ENDPOINT` | 自动 | 自定义 S3 端点（可选） |
-
-> 不配置 R2 相关变量时，图片自动存储到本地 `api/data/uploads/`。
-
 ---
 
 ## API 接口
 
-所有接口以 `userID = 0001` 操作，无需认证。
+所有需认证接口在 Header 中携带 `Authorization: Bearer <token>`（通过短信验证码登录获取 JWT）。
+
+### 认证
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/auth/send-code` | 发送短信验证码 |
+| `POST` | `/api/auth/login` | 验证码登录，返回 JWT |
 
 ### 地点
 
@@ -200,14 +266,21 @@ Go 服务会自动检测 `web/dist/` 并托管静态前端文件，访问 http:/
 
 ```
 浏览器                         Go 后端
-┌──────────┐  fetch()   ┌──────────────────┐
-│ React 19 │ ────────→  │ net/http (Go 1.22+)│
-│ Vite 8   │ ←────────  │                    │
-│ AMap SDK │            │ state.json ←→ 持久化 │
-└──────────┘            │ R2 ←→ S3 API      │
-                        └──────────────────┘
+┌──────────┐  fetch()   ┌──────────────────────┐
+│ React 19 │ ────────→  │ net/http (Go 1.22+)  │
+│ Vite 8   │ ←────────  │ DDD 分层             │
+│ AMap SDK │            │   ├── adapter/http    │
+└──────────┘            │   ├── service         │
+                        │   ├── domain          │
+                        │   └── repo            │
+                        │                      │
+                        │ MySQL ←→ 数据持久化    │
+                        │ Redis ←→ 缓存/验证码   │
+                        │ R2   ←→ 图片存储      │
+                        └──────────────────────┘
 ```
 
-- **数据流**：React 通过 `fetch` 调用 Go API，Go 读写 JSON 文件持久化
+- **数据流**：React 通过 `fetch` 调用 Go API，Go 通过 MySQL repository 读写数据
+- **认证**：短信验证码 → JWT → 后续请求带 Token
 - **图片流**：上传 → Go 接收 → 存 R2（或本地）→ 返回 `/api/media/...` 代理 URL → 浏览器读取
 - **地图**：高德 SDK 在浏览器端加载，`DistrictSearch` 获取行政区边界，`scatter` 显示地点标记

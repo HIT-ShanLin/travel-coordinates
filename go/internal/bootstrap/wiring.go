@@ -11,12 +11,14 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	httpadapter "travel-coordinates/go/internal/adapter/http"
+	"travel-coordinates/go/internal/adapter/http/middleware"
 	"travel-coordinates/go/internal/adapter/sms"
 	"travel-coordinates/go/internal/adapter/storage"
 	"travel-coordinates/go/internal/adapter/storage/local"
 	"travel-coordinates/go/internal/adapter/storage/r2"
 	repo "travel-coordinates/go/internal/repo/place"
 	authsvc "travel-coordinates/go/internal/service/auth"
+	geosvc "travel-coordinates/go/internal/service/geo"
 	placesvc "travel-coordinates/go/internal/service/place"
 )
 
@@ -27,7 +29,7 @@ func RunServer() error {
 		return err
 	}
 	log.Printf("travel coordinates api listening on :%s", cfg.Port)
-	err = http.ListenAndServe(":"+cfg.Port, server.Mux())
+	err = http.ListenAndServe(":"+cfg.Port, middleware.CORS(server.Mux()))
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -70,7 +72,10 @@ func BuildHTTPServer(cfg Config) (*httpadapter.Server, error) {
 	smsCli := sms.New(cfg.SMSAccessKeyID, cfg.SMSAccessKeySecret)
 	authService := authsvc.New(db, redisCli, smsCli, cfg.SMSSignName, cfg.SMSTemplateCode, cfg.JWTSecret)
 
-	return httpadapter.New(placeService, authService, cfg.DataDir, cfg.WebDir, cfg.JWTSecret), nil
+	// Geo service
+	geoService := geosvc.New(db, cfg.AmapKey)
+
+	return httpadapter.New(placeService, authService, geoService, cfg.DataDir, cfg.WebDir, cfg.JWTSecret), nil
 }
 
 func buildStorage(cfg Config) (storage.Storage, error) {

@@ -3,6 +3,7 @@ package place
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -94,18 +95,31 @@ func (s *Service) AddPhoto(ctx context.Context, userID string, placeID string, i
 	if err != nil {
 		return domain.Place{}, err
 	}
-	result, err := s.storage.Upload(ctx, storage.UploadInput{
-		UserID:      userID,
-		PlaceID:     placeID,
-		Kind:        "photos",
-		IDPrefix:    "photo",
-		Filename:    input.Filename,
-		ContentType: input.ContentType,
-		File:        input.File,
-	})
-	if err != nil {
-		return domain.Place{}, err
+
+	// Upload to R2/local with up to 3 retries
+	var result storage.UploadResult
+	for attempt := 1; attempt <= 3; attempt++ {
+		result, err = s.storage.Upload(ctx, storage.UploadInput{
+			UserID:      userID,
+			PlaceID:     placeID,
+			Kind:        "photos",
+			IDPrefix:    "photo",
+			Filename:    input.Filename,
+			ContentType: input.ContentType,
+			File:        input.File,
+		})
+		if err == nil {
+			break
+		}
+		log.Printf("AddPhoto upload attempt %d/3 failed: %v", attempt, err)
+		if attempt < 3 {
+			time.Sleep(time.Duration(attempt*500) * time.Millisecond)
+		}
 	}
+	if err != nil {
+		return domain.Place{}, fmt.Errorf("upload failed after 3 attempts: %w", err)
+	}
+
 	now := s.now()
 	place.AddPhoto(domain.Photo{
 		ID:        result.ID,
@@ -150,42 +164,7 @@ func (s *Service) AddPost(ctx context.Context, userID string, placeID string, in
 		PlaceID:   placeID,
 		Title:     strings.TrimSpace(input.Title),
 		Content:   strings.TrimSpace(input.Content),
-		CreatedAt: now,
-	}, now)
-	if err := s.repository.Save(place); err != nil {
-		return domain.Place{}, err
-	}
-	return place, nil
-}
-
-func (s *Service) AddPostAttachment(ctx context.Context, userID string, placeID string, input PostAttachmentInput) (domain.Place, error) {
-	if err := domain.ValidatePost(input.Title, input.Content); err != nil {
-		return domain.Place{}, err
-	}
-	place, err := s.repository.FindByID(userID, placeID)
-	if err != nil {
-		return domain.Place{}, err
-	}
-	result, err := s.storage.Upload(ctx, storage.UploadInput{
-		UserID:      userID,
-		PlaceID:     placeID,
-		Kind:        "posts",
-		IDPrefix:    "postimg",
-		Filename:    input.Filename,
-		ContentType: input.ContentType,
-		File:        input.File,
-	})
-	if err != nil {
-		return domain.Place{}, err
-	}
-	now := s.now()
-	place.AddPost(domain.Post{
-		ID:        s.newID("post"),
-		UserID:    userID,
-		PlaceID:   placeID,
-		Title:     strings.TrimSpace(input.Title),
-		Content:   strings.TrimSpace(input.Content),
-		PhotoID:   result.ID,
+		PhotoID:   strings.TrimSpace(input.PhotoID),
 		CreatedAt: now,
 	}, now)
 	if err := s.repository.Save(place); err != nil {
