@@ -13,6 +13,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./mysql/02-geo-cache.sql:/docker-entrypoint-initdb.d/02-geo-cache.sql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
