@@ -33,7 +33,7 @@ cd deploy/cloudflared && sh run.sh start
 ```
 
 - 本地访问：http://localhost:8080
-- 公网访问：https://travel.sltechblog.site
+- 公网访问：https://travel.newquadrant.cn
 
 查看服务状态：
 ```bash

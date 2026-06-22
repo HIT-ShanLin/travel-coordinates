@@ -6,17 +6,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-start}" in
   start)
     echo "Starting cloudflared tunnel (travel-coordinates)..."
-    echo "  → https://travel.sltechblog.site"
+    echo "  → https://travel.newquadrant.cn"
     cloudflared tunnel --config "$SCRIPT_DIR/config.yml" run
     ;;
   stop)
     echo "Stopping cloudflared..."
-    pkill -f "cloudflared tunnel.*663cdd3c" || echo "  already stopped"
+    pkill -f "cloudflared tunnel.*config.yml" || echo "  already stopped"
     ;;
   status)
-    if pgrep -f "cloudflared tunnel.*663cdd3c" > /dev/null; then
+    if pgrep -f "cloudflared tunnel.*config.yml" > /dev/null; then
       echo "cloudflared is running"
-      echo "  → https://travel.sltechblog.site"
+      echo "  → https://travel.newquadrant.cn"
     else
       echo "cloudflared is not running"
     fi

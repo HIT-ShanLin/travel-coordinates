@@ -147,7 +147,7 @@ cd deploy/cloudflared
 sh run.sh start
 ```
 
-公网地址：**https://travel.sltechblog.site**
+公网地址：**https://travel.newquadrant.cn**
 
 ---
 

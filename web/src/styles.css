@@ -724,17 +724,148 @@ h1 {
 
 .chip-count { font-weight: 400; font-size: 0.85em; color: #64748b; }
 
-.swipe-container { transition: transform 0.3s ease-out; }
-.swipe-dots { display: flex; justify-content: center; gap: 6px; padding: 6px 0; }
-.swipe-dot { width: 6px; height: 6px; border-radius: 3px; background: #cbd5e1; cursor: pointer; transition: all 0.2s; }
-.swipe-dot.active { background: #2563eb; width: 20px; }
+/* ===== Horizontal Carousel (Place & Post) ===== */
 
+/* --- place carousel (outer level) --- */
+.place-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 16px; /* peek: 16px side margins */
+  flex: 1;
+  position: relative;
+}
+.place-carousel::-webkit-scrollbar { display: none; }
+
+.place-card {
+  flex: 0 0 calc(100% - 32px); /* expose 16px of adjacent cards */
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+/* --- post carousel (inner level) --- */
+.post-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain; /* don't bubble to place carousel */
+  padding: 0 12px;
+  flex: 1;
+}
+.post-carousel::-webkit-scrollbar { display: none; }
+
+.post-card-item {
+  flex: 0 0 calc(100% - 24px); /* expose 12px of adjacent posts */
+  scroll-snap-align: center;
+}
+
+/* --- desktop carousel arrows --- */
+.carousel-arrow {
+  position: absolute;
+  top: 45%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #334155;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  opacity: 0;
+  transition: opacity 0.2s, background 0.15s;
+  pointer-events: none;
+}
+.place-carousel-container:hover .carousel-arrow {
+  opacity: 1;
+  pointer-events: auto;
+}
+.carousel-arrow:hover { background: rgba(255,255,255,1); }
+.carousel-arrow-left { left: 8px; }
+.carousel-arrow-right { right: 8px; }
+
+/* --- place card internals --- */
+.place-card-header {
+  padding: 14px 16px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.place-card-header h3 { margin: 0; font-size: 16px; color: #1a1a2e; }
+.place-card-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+.place-card-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.place-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.place-card-footer {
+  padding: 10px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.place-card-footer .primary-btn { width: 100%; }
+
+/* --- post dot indicators --- */
+.post-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 0 2px;
+}
+.post-dot {
+  width: 5px; height: 5px;
+  border-radius: 3px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.post-dot.active { background: #4a90d9; width: 18px; }
+
+/* --- place dot indicators --- */
+.place-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0 2px;
+}
+.place-dot {
+  width: 6px; height: 6px;
+  border-radius: 3px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.place-dot.active { background: #2563eb; width: 20px; }
+
+/* --- swipe topbar (kept for backwards compat) --- */
 .swipe-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.swipe-topbar { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; }
+.swipe-topbar { display: flex; justify-content: space-between; align-items: flex-start; padding: 0 16px 10px; }
 .swipe-topbar-left h3 { margin: 0; font-size: 17px; }
 .swipe-topbar-sub { font-size: 13px; color: #64748b; }
 .swipe-topbar-right { display: flex; align-items: center; gap: 8px; }
 .swipe-counter { font-size: 13px; color: #94a3b8; }
-.swipe-card { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.swipe-bottom { padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.swipe-bottom { padding: 10px 16px 4px; display: flex; flex-direction: column; gap: 8px; }
 .swipe-bottom .primary-btn { width: 100%; }

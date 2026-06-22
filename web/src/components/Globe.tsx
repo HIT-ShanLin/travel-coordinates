@@ -584,6 +584,21 @@ export function Globe({
   }, [ready]);
 
   /* ------------------------------------------------------------------ */
+  /*  Listen for swipe-to-place event (carousel map sync)                */
+  /* ------------------------------------------------------------------ */
+
+  useEffect(() => {
+    function handleSwipeToPlace(e: Event) {
+      const map = mapRef.current;
+      if (!map) return;
+      const { longitude, latitude } = (e as CustomEvent).detail;
+      map.setZoomAndCenter(12, [longitude, latitude], true, 800);
+    }
+    window.addEventListener("swipe-to-place", handleSwipeToPlace);
+    return () => window.removeEventListener("swipe-to-place", handleSwipeToPlace);
+  }, [ready]);
+
+  /* ------------------------------------------------------------------ */
   /*  Render                                                             */
   /* ------------------------------------------------------------------ */
 

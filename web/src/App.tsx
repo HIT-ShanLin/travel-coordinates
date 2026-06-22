@@ -342,7 +342,21 @@ export default function App() {
                 onClose={() => setPanel(null)}
                 onAppendMemory={handleAppendMemory}
                 siblingPlaces={siblingPlaces}
-                onNavigate={(id) => setSelectedPlaceId(id)}
+                onNavigate={(id) => {
+                  setSelectedPlaceId(id);
+                  // trigger map fly-to when swiping between places
+                  const target = places.find((p) => p.id === id);
+                  if (target) {
+                    window.dispatchEvent(
+                      new CustomEvent("swipe-to-place", {
+                        detail: {
+                          longitude: target.longitude,
+                          latitude: target.latitude,
+                        },
+                      }),
+                    );
+                  }
+                }}
                 currentUserId={getUser()?.id}
               />
             </aside>

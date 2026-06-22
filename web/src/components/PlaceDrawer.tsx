@@ -18,6 +18,10 @@ type Props = {
   currentUserId?: string;
 };
 
+/* ------------------------------------------------------------------ */
+/*  Build memory cards for a given place                               */
+/* ------------------------------------------------------------------ */
+
 function buildMemoryCards(place: Place): MemoryCardData[] {
   const cards: MemoryCardData[] = [];
   const photoMap = new Map(place.photos.map((p) => [p.id, p]));
@@ -48,94 +52,296 @@ function buildMemoryCards(place: Place): MemoryCardData[] {
   return cards;
 }
 
+/* ------------------------------------------------------------------ */
+/*  PostCarousel — inner carousel for posts/photos within one place    */
+/* ------------------------------------------------------------------ */
+
+function PostCarousel({ cards, isOwner, onEdit, onDeleteCard }: {
+  cards: MemoryCardData[];
+  isOwner: boolean;
+  onEdit?: () => void;
+  onDeleteCard: (cardId: string, cardType: string) => void;
+}) {
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const single = cards.length <= 1;
+
+  // IntersectionObserver to track which post card is visible
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || single) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            const idx = Number((entry.target as HTMLElement).dataset.idx);
+            if (!isNaN(idx)) setActiveIdx(idx);
+          }
+        }
+      },
+      { threshold: 0.6, root: el },
+    );
+
+    el.querySelectorAll('.post-card-item').forEach((c) => observer.observe(c));
+    return () => observer.disconnect();
+  }, [cards.length, single]);
+
+  const scrollTo = (idx: number) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const items = el.querySelectorAll('.post-card-item');
+    if (items[idx]) {
+      items[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  };
+
+  if (cards.length === 0) {
+    return (
+      <div className="hero-empty" style={{ flex: 1 }}>
+        <p>暂无记忆</p>
+        {isOwner && <p className="pg-hint">点击下方按钮添加旅行记忆</p>}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div
+        className={`post-carousel ${single ? 'single' : ''}`}
+        ref={carouselRef}
+        style={single ? { padding: '0 12px', overflowX: 'hidden' } : undefined}
+      >
+        {cards.map((card, i) => (
+          <div
+            className="post-card-item"
+            key={card.id}
+            data-idx={i}
+            style={single ? { flex: '1 1 100%' } : undefined}
+          >
+            <MemoryCard
+              card={card}
+              onEdit={isOwner ? onEdit : undefined}
+              onDelete={
+                isOwner
+                  ? () => onDeleteCard(card.id, card.type)
+                  : undefined
+              }
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* dot indicators (only when > 1) */}
+      {!single && (
+        <div className="post-dots">
+          {cards.map((_, i) => (
+            <span
+              key={i}
+              className={`post-dot ${i === activeIdx ? 'active' : ''}`}
+              onClick={() => scrollTo(i)}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  PlaceCard — a single place's content                               */
+/* ------------------------------------------------------------------ */
+
+function PlaceCard({
+  place,
+  cards,
+  isOwner,
+  onEdit,
+  onDeleteCard,
+  onAppendMemory,
+  onDeletePlace,
+}: {
+  place: Place;
+  cards: MemoryCardData[];
+  isOwner: boolean;
+  onEdit: () => void;
+  onDeleteCard: (cardId: string, cardType: string) => void;
+  onAppendMemory?: () => void;
+  onDeletePlace: () => void;
+}) {
+  const handleDeleteCard = useCallback(
+    (cardId: string, cardType: string) => {
+      if (cardType === 'photo_only') {
+        if (confirm('删除这张照片？')) onDeleteCard(cardId, cardType);
+      } else {
+        if (confirm('删除这条记忆？')) onDeleteCard(cardId, cardType);
+      }
+    },
+    [onDeleteCard],
+  );
+
+  return (
+    <div className="place-card" data-place-id={place.id}>
+      {/* header */}
+      <div className="place-card-header">
+        <div>
+          <h3>{place.name}</h3>
+          <div className="place-card-sub">
+            {place.country} · {place.city || place.name}
+          </div>
+        </div>
+        <div className="place-card-meta">
+          {isOwner && (
+            <button className="mini-btn" onClick={onEdit}>
+              编辑
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* body: post carousel */}
+      <div className="place-card-body">
+        <PostCarousel
+          cards={cards}
+          isOwner={isOwner}
+          onEdit={onAppendMemory}
+          onDeleteCard={handleDeleteCard}
+        />
+      </div>
+
+      {/* footer (owner actions) */}
+      {isOwner && (
+        <div className="place-card-footer">
+          {onAppendMemory && (
+            <button className="primary-btn" onClick={onAppendMemory}>
+              ＋ 添加记忆
+            </button>
+          )}
+          <button
+            className="mini-btn mc-delete-btn"
+            onClick={() => {
+              if (confirm('确定删除此地点及其所有记忆？')) onDeletePlace();
+            }}
+          >
+            删除此地点
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  PlaceDrawer — outer carousel of places                             */
+/* ------------------------------------------------------------------ */
+
 export function PlaceDrawer({
   place, onUpdatePlace, onDeletePhoto, onDeletePost, onDeletePlace,
   onClose, onAppendMemory, siblingPlaces, onNavigate, currentUserId,
 }: Props) {
   const [editing, setEditing] = useState(false);
-  const [cards, setCards] = useState<MemoryCardData[]>([]);
-  const offsetX = useRef(0);
-  const startX = useRef(0);
-  const swipingRef = useRef(false);
-  const lastTime = useRef(0);
-  const lastX = useRef(0);
-  const [swipeX, setSwipeX] = useState(0);
-  const [swiping, setSwiping] = useState(false);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [activePlaceIdx, setActivePlaceIdx] = useState(0);
 
   const siblings = siblingPlaces ?? [];
   const currentIdx = siblings.findIndex((p) => p.id === place?.id);
   const siblingCount = siblings.length;
   const isOwner = place ? place.user_id === (currentUserId ?? '') : false;
 
+  // Pre-compute cards for all sibling places
+  const placeCards = siblings.map((p) => ({
+    place: p,
+    cards: buildMemoryCards(p),
+  }));
+
+  // Reset editing when place changes
   useEffect(() => {
-    if (place) { setCards(buildMemoryCards(place)); setEditing(false); setSwipeX(0); }
-    else { setCards([]); }
+    if (place) setEditing(false);
   }, [place]);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    if (siblingCount < 2 || !onNavigate) return;
-    startX.current = e.touches[0].clientX;
-    offsetX.current = 0;
-    swipingRef.current = true;
-    setSwiping(true);
-  }, [siblingCount, onNavigate]);
+  // IntersectionObserver: detect which place is in view → navigate + map sync
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || siblingCount < 2) return;
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!swipingRef.current) return;
-    const dx = e.touches[0].clientX - startX.current;
-    offsetX.current = dx;
-    lastTime.current = Date.now();
-    lastX.current = dx;
-    const atStart = currentIdx === 0 && dx > 0;
-    const atEnd = currentIdx === siblingCount - 1 && dx < 0;
-    setSwipeX(atStart || atEnd ? dx * 0.2 : dx);
-  }, [currentIdx, siblingCount]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            const placeId = (entry.target as HTMLElement).dataset.placeId;
+            const idx = siblings.findIndex((p) => p.id === placeId);
+            if (placeId && idx >= 0 && idx !== activePlaceIdx) {
+              setActivePlaceIdx(idx);
+              if (onNavigate) onNavigate(placeId);
+            }
+          }
+        }
+      },
+      { threshold: 0.6, root: el },
+    );
 
-  const onTouchEnd = useCallback(() => {
-    if (!swipingRef.current || !onNavigate) return;
-    swipingRef.current = false;
-    setSwiping(false);
-    const dx = offsetX.current;
-    const dt = Date.now() - lastTime.current;
-    const vel = dt > 0 ? Math.abs(dx) / dt : 0;
-    const shouldNav = Math.abs(dx) > 40 || (Math.abs(dx) > 12 && vel > 0.5);
-    if (shouldNav) {
-      const dir = dx < 0 ? 1 : -1;
-      const newIdx = currentIdx + dir;
-      if (newIdx >= 0 && newIdx < siblingCount) {
-        setSwipeX(dir > 0 ? -500 : 500);
-        setTimeout(() => { onNavigate(siblings[newIdx].id); setSwipeX(0); }, 150);
-        return;
-      }
+    el.querySelectorAll('.place-card').forEach((c) => observer.observe(c));
+    return () => observer.disconnect();
+  }, [siblings, siblingCount, activePlaceIdx, onNavigate]);
+
+  // Sync activePlaceIdx when place prop changes externally (e.g., marker click)
+  useEffect(() => {
+    if (currentIdx >= 0 && currentIdx !== activePlaceIdx) {
+      setActivePlaceIdx(currentIdx);
     }
-    setSwipeX(0);
-  }, [currentIdx, siblingCount, siblings, onNavigate]);
+  }, [currentIdx, activePlaceIdx]);
 
+  // Desktop: scroll to specific place
+  const scrollToPlace = useCallback((idx: number) => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const cards = el.querySelectorAll('.place-card');
+    if (cards[idx]) {
+      cards[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, []);
+
+  // Scroll to current place when `place` prop changes from outside
+  useEffect(() => {
+    if (currentIdx >= 0) {
+      // Small delay to let DOM render
+      const timer = setTimeout(() => scrollToPlace(currentIdx), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [place?.id, currentIdx, scrollToPlace]);
+
+  const handleArrow = useCallback(
+    (dir: 1 | -1) => {
+      const newIdx = activePlaceIdx + dir;
+      if (newIdx >= 0 && newIdx < siblingCount) scrollToPlace(newIdx);
+    },
+    [activePlaceIdx, siblingCount, scrollToPlace],
+  );
+
+  /* ---- empty state ---- */
   if (!place) return (
     <div className="panel-content"><p className="empty-hint">点击标记查看旅行记忆</p></div>
   );
 
+  /* ---- editing state ---- */
   if (editing) return (
     <div className="panel-content">
       <PlaceEditor
-        initial={{ name: place.name, latitude: place.latitude, longitude: place.longitude,
+        initial={{
+          name: place.name, latitude: place.latitude, longitude: place.longitude,
           travel_date: place.travel_date, note: place.note, place_type: place.place_type,
           country: place.country, city: place.city,
-          originalName: place.name, originalCountry: place.country, originalCity: place.city }}
+          originalName: place.name, originalCountry: place.country, originalCity: place.city,
+        }}
         onSave={async (input) => { await onUpdatePlace(input); setEditing(false); }}
         onCancel={() => setEditing(false)}
       />
     </div>
   );
 
-  const handleDeleteCard = (cardId: string, cardType: string) => {
-    if (cardType === 'photo_only') { if (confirm('删除这张照片？')) onDeletePhoto(cardId); }
-    else { if (confirm('删除这条记忆？')) onDeletePost(cardId); }
-  };
-
+  /* ---- normal state with carousel ---- */
   return (
-    <div className="panel-content swipe-panel"
-      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <div className="swipe-panel">
       {/* Top bar */}
       <div className="swipe-topbar">
         <div className="swipe-topbar-left">
@@ -143,51 +349,90 @@ export function PlaceDrawer({
           <span className="swipe-topbar-sub">{place.country} · {place.city}</span>
         </div>
         <div className="swipe-topbar-right">
-          {siblingCount > 1 && <span className="swipe-counter">{currentIdx + 1}/{siblingCount}</span>}
-          {isOwner && <button className="mini-btn" onClick={() => setEditing(true)}>编辑</button>}
+          {siblingCount > 1 && (
+            <span className="swipe-counter">
+              {activePlaceIdx + 1}/{siblingCount}
+            </span>
+          )}
+          {isOwner && (
+            <button className="mini-btn" onClick={() => setEditing(true)}>
+              编辑
+            </button>
+          )}
           <button className="mini-btn" onClick={onClose}>✕</button>
         </div>
       </div>
 
-      {/* Dots */}
+      {/* Place carousel */}
+      <div className="place-carousel-container" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div className="place-carousel" ref={carouselRef}>
+          {placeCards.map(({ place: p, cards }) => (
+            <PlaceCard
+              key={p.id}
+              place={p}
+              cards={cards}
+              isOwner={p.user_id === (currentUserId ?? '')}
+              onEdit={() => setEditing(true)}
+              onDeleteCard={(cardId, cardType) => {
+                if (cardType === 'photo_only') onDeletePhoto(cardId);
+                else onDeletePost(cardId);
+              }}
+              onAppendMemory={onAppendMemory}
+              onDeletePlace={onDeletePlace}
+            />
+          ))}
+        </div>
+
+        {/* Desktop arrows (only when > 1 sibling) */}
+        {siblingCount > 1 && (
+          <>
+            <button
+              className="carousel-arrow carousel-arrow-left"
+              onClick={() => handleArrow(-1)}
+              style={{ display: activePlaceIdx <= 0 ? 'none' : undefined }}
+            >
+              ‹
+            </button>
+            <button
+              className="carousel-arrow carousel-arrow-right"
+              onClick={() => handleArrow(1)}
+              style={{ display: activePlaceIdx >= siblingCount - 1 ? 'none' : undefined }}
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Place dot indicators */}
       {siblingCount > 1 && (
-        <div className="swipe-dots">
+        <div className="place-dots">
           {siblings.map((p, i) => (
-            <span key={p.id} className={`swipe-dot ${i === currentIdx ? 'active' : ''}`}
-              onClick={() => onNavigate?.(p.id)} />
+            <span
+              key={p.id}
+              className={`place-dot ${i === activePlaceIdx ? 'active' : ''}`}
+              onClick={() => scrollToPlace(i)}
+            />
           ))}
         </div>
       )}
 
-      {/* Swipeable card */}
-      <div className="swipe-card" style={{
-        transform: `translateX(${swipeX}px) rotate(${swipeX * 0.03}deg)`,
-        transition: swiping ? 'none' : 'transform 0.15s ease-out',
-      }}>
-        {cards.length > 0 ? (
-          <div className="memory-list">
-            {cards.map((card) => (
-              <MemoryCard key={card.id} card={card}
-                onEdit={isOwner ? onAppendMemory : undefined}
-                onDelete={isOwner ? () => handleDeleteCard(card.id, card.type) : undefined}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="hero-empty">
-            <p>暂无记忆</p>
-            {isOwner && <p className="pg-hint">点击下方按钮添加旅行记忆</p>}
-          </div>
-        )}
-      </div>
-
-      {/* Bottom (owner only) */}
+      {/* Bottom bar (owner only, for current place) */}
       {isOwner && (
         <div className="swipe-bottom">
-          {onAppendMemory && <button className="primary-btn" onClick={onAppendMemory}>＋ 添加记忆</button>}
-          <button className="mini-btn mc-delete-btn" onClick={() => {
-            if (confirm('确定删除此地点及其所有记忆？')) onDeletePlace();
-          }}>删除此地点</button>
+          {onAppendMemory && (
+            <button className="primary-btn" onClick={onAppendMemory}>
+              ＋ 添加记忆
+            </button>
+          )}
+          <button
+            className="mini-btn mc-delete-btn"
+            onClick={() => {
+              if (confirm('确定删除此地点及其所有记忆？')) onDeletePlace();
+            }}
+          >
+            删除此地点
+          </button>
         </div>
       )}
     </div>
