@@ -403,10 +403,9 @@ export function Globe({
         }
       });
 
-      // click → flyTo + select
+      // click → select (map fly handled by swipe-to-place event)
       marker.on("click", () => {
         hideTooltip();
-        map.setZoomAndCenter(12, [place.longitude, place.latitude], true, 800);
         onSelectPlace(place.id);
       });
 

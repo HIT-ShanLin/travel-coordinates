@@ -81,6 +81,15 @@ export default function App() {
   function openMemories(id: string) {
     setSelectedPlaceId(id);
     setPanel("memories");
+    // Trigger map fly-to for any navigation (chip, search, marker click)
+    const target = places.find((p) => p.id === id);
+    if (target) {
+      window.dispatchEvent(
+        new CustomEvent("swipe-to-place", {
+          detail: { longitude: target.longitude, latitude: target.latitude },
+        }),
+      );
+    }
   }
 
   async function handleUpdatePlace(input: PlaceInput) {
@@ -233,15 +242,25 @@ export default function App() {
               placeholder="搜索足迹、地点..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && filteredPlaces.length > 0) {
+                  openMemories(filteredPlaces[0].id);
+                }
+              }}
             />
             {searchQuery && (
-              <button
-                className="search-clear"
-                type="button"
-                onClick={() => setSearchQuery("")}
-              >
-                ✕
-              </button>
+              <>
+                <span className="search-count" style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                  {filteredPlaces.length} 个结果
+                </span>
+                <button
+                  className="search-clear"
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                >
+                  ✕
+                </button>
+              </>
             )}
           </div>
 

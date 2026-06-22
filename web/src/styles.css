@@ -618,6 +618,83 @@ h1 {
     top: auto; bottom: 0;
     max-height: 78vh;
   }
+
+  /* --- mobile: smaller sheet for carousel view --- */
+  .slide-panel.sheet {
+    max-height: 52vh;
+    min-height: 200px;
+  }
+
+  /* --- mobile: compact place card --- */
+  .place-carousel {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .place-card {
+    flex: 0 0 calc(100% - 20px);
+    border-radius: 12px;
+  }
+  .place-card-header {
+    padding: 8px 10px 4px;
+  }
+  .place-card-header h3 {
+    font-size: 14px;
+  }
+  .place-card-sub {
+    font-size: 11px;
+  }
+  .place-card-footer {
+    padding: 6px 10px 8px;
+    gap: 4px;
+  }
+
+  /* --- mobile: compact post carousel --- */
+  .post-carousel {
+    gap: 8px;
+    padding: 0 8px;
+  }
+  .post-card-item {
+    flex: 0 0 calc(100% - 16px);
+  }
+
+  /* --- mobile: smaller memory card photos --- */
+  .mc-photo-main {
+    height: 130px;
+  }
+  .mc-meta {
+    padding: 8px 10px;
+  }
+  .mc-content {
+    font-size: 13px;
+    max-height: 3.6em;
+    overflow: hidden;
+  }
+  .mc-actions {
+    padding: 0 10px 8px;
+  }
+
+  /* --- mobile: tighter topbar --- */
+  .swipe-topbar {
+    padding: 0 10px 6px;
+  }
+  .swipe-topbar-left h3 {
+    font-size: 15px;
+  }
+  .swipe-topbar-sub {
+    font-size: 11px;
+  }
+
+  /* --- mobile: smaller buttons --- */
+  .place-card-footer .primary-btn,
+  .swipe-bottom .primary-btn {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  /* --- mobile: hide desktop arrows --- */
+  .carousel-arrow {
+    display: none !important;
+  }
 }
 
 /* ===== LocationPicker ===== */
