@@ -87,6 +87,33 @@ function PostCarousel({ cards, isOwner, onEdit, onDeleteCard }: {
     return () => observer.disconnect();
   }, [cards.length, single]);
 
+  // Also listen for scroll events for more responsive dot updates
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || single) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (!el) return;
+        const center = el.scrollLeft + el.clientWidth / 2;
+        let closest = 0;
+        let minDist = Infinity;
+        el.querySelectorAll('.post-card-item').forEach((c, i) => {
+          const dist = Math.abs(c.getBoundingClientRect().left - el.getBoundingClientRect().left - el.clientWidth / 2 + c.getBoundingClientRect().width / 2);
+          if (dist < minDist) { minDist = dist; closest = i; }
+        });
+        if (closest !== activeIdx) setActiveIdx(closest);
+      });
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [cards.length, single, activeIdx]);
+
   const scrollTo = (idx: number) => {
     const el = carouselRef.current;
     if (!el) return;
@@ -114,10 +141,10 @@ function PostCarousel({ cards, isOwner, onEdit, onDeleteCard }: {
       >
         {cards.map((card, i) => (
           <div
-            className="post-card-item"
+            className={`post-card-item ${i === activeIdx ? 'active' : ''}`}
             key={card.id}
             data-idx={i}
-            style={single ? { flex: '1 1 100%' } : undefined}
+            style={single ? { flex: '1 1 100%', transform: 'scale(1)', opacity: 1 } : undefined}
           >
             <MemoryCard
               card={card}
@@ -156,6 +183,7 @@ function PlaceCard({
   place,
   cards,
   isOwner,
+  isActive,
   onEdit,
   onDeleteCard,
   onAppendMemory,
@@ -164,6 +192,7 @@ function PlaceCard({
   place: Place;
   cards: MemoryCardData[];
   isOwner: boolean;
+  isActive: boolean;
   onEdit: () => void;
   onDeleteCard: (cardId: string, cardType: string) => void;
   onAppendMemory?: () => void;
@@ -181,7 +210,7 @@ function PlaceCard({
   );
 
   return (
-    <div className="place-card" data-place-id={place.id}>
+    <div className={`place-card ${isActive ? 'active' : ''}`} data-place-id={place.id}>
       {/* header */}
       <div className="place-card-header">
         <div>
@@ -291,6 +320,37 @@ export function PlaceDrawer({
     }
   }, [currentIdx, activePlaceIdx]);
 
+  // Scroll event listener for more responsive active place detection
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || siblingCount < 2) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (!el) return;
+        const items = el.querySelectorAll('.place-card');
+        let closest = 0;
+        let minDist = Infinity;
+        const containerRect = el.getBoundingClientRect();
+        const containerCenter = containerRect.left + containerRect.width / 2;
+        items.forEach((c, i) => {
+          const rect = c.getBoundingClientRect();
+          const cardCenter = rect.left + rect.width / 2;
+          const dist = Math.abs(cardCenter - containerCenter);
+          if (dist < minDist) { minDist = dist; closest = i; }
+        });
+        if (closest !== activePlaceIdx) setActivePlaceIdx(closest);
+      });
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [siblingCount, activePlaceIdx]);
+
   // Desktop: scroll to specific place
   const scrollToPlace = useCallback((idx: number) => {
     const el = carouselRef.current;
@@ -366,12 +426,13 @@ export function PlaceDrawer({
       {/* Place carousel */}
       <div className="place-carousel-container" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
         <div className="place-carousel" ref={carouselRef}>
-          {placeCards.map(({ place: p, cards }) => (
+          {placeCards.map(({ place: p, cards }, i) => (
             <PlaceCard
               key={p.id}
               place={p}
               cards={cards}
               isOwner={p.user_id === (currentUserId ?? '')}
+              isActive={i === activePlaceIdx}
               onEdit={() => setEditing(true)}
               onDeleteCard={(cardId, cardType) => {
                 if (cardType === 'photo_only') onDeletePhoto(cardId);
