@@ -799,6 +799,37 @@ h1 {
 .temp-pin { width: 24px; height: 24px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,0.2); animation: pin-pulse 1.5s ease-in-out infinite; }
 @keyframes pin-pulse { 0%, 100% { box-shadow: 0 0 0 6px rgba(37,99,235,0.2); } 50% { box-shadow: 0 0 0 14px rgba(37,99,235,0); } }
 
+/* marker glow + pulse (injected into AMap Marker content) */
+@keyframes marker-pulse {
+  0%, 100% { box-shadow: 0 0 0 5px rgba(74,144,217,0.18), 0 4px 16px rgba(0,0,0,0.25); }
+  50% { box-shadow: 0 0 0 10px rgba(74,144,217,0.06), 0 4px 20px rgba(0,0,0,0.3); }
+}
+@keyframes ring-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.8; }
+}
+
+/* pin tooltip enhanced stats */
+.pin-tooltip-stats {
+  display: flex;
+  gap: 8px;
+  margin-top: 5px;
+}
+.pin-stat {
+  font-size: 0.7rem;
+  color: #2563eb;
+  background: rgba(37,99,235,0.07);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.pin-stat-memories {
+  display: block;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
 .chip-count { font-weight: 400; font-size: 0.85em; color: #64748b; }
 
 /* ===== Horizontal Carousel (Place & Post) ===== */

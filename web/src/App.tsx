@@ -72,11 +72,19 @@ export default function App() {
     [places, selectedPlaceId],
   );
 
-  // Sibling places in the same city (for swipe navigation)
+  // All places for carousel swipe navigation (randomized, current place first)
   const siblingPlaces = useMemo(() => {
-    if (!selectedPlace?.city) return [];
-    return places.filter((p) => p.city === selectedPlace.city);
-  }, [places, selectedPlace?.city]);
+    if (!selectedPlace || places.length <= 1) return places;
+    // Put current place first, then shuffle the rest with a stable pseudo-random order
+    const rest = places.filter((p) => p.id !== selectedPlace.id);
+    // Stable deterministic shuffle based on place IDs
+    const sorted = [...rest].sort((a, b) => {
+      const ha = a.id.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+      const hb = b.id.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+      return ha - hb;
+    });
+    return [selectedPlace, ...sorted];
+  }, [places, selectedPlace]);
 
   function openMemories(id: string) {
     setSelectedPlaceId(id);
